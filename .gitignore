@@ -1,0 +1,58 @@
+# Data directories (runtime data)
+data/processor-mysql/
+data/processor-server/
+
+# Compiled binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build outputs
+dist/
+build/
+out/
+src/modules/event-receiver/quality-server
+
+# Frontend
+node_modules/
+.pnpm-store/
+.yarn/
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+.claude/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Test coverage
+coverage/
+*.coverprofile
+
+# Dependency directories
+vendor/
+
+# Binary output
+bin/

@@ -1,0 +1,548 @@
+1. 首先请求获取所有的event事件，每30秒获取一次。
+2. 质量检查阶段说明:
+**基础 CI**
+   - 编译检查
+   - 代码规范检查
+   - 安全扫描
+   - 单元测试
+
+**部署**
+   - 部署检查
+
+**专项测试**
+   - API 测试
+   - 模块端到端测试
+   - Agent智能体端到端测试
+   - AI 端到端测试
+
+下面是查看某个event事件的详情返回值，其中的quality_checks定义了严格的顺序。
+{
+  "id": 4,
+  "event_id": "8aab5cf6-cd10-4a",
+  "event_type": "push",
+  "event_status": "pending",
+  "repository": "suilinfei001/TestOpenSourceCIWorkflow",
+  "branch": "main",
+  "commit_sha": "c8a4aa1f92ff410d1a84a771780aec226a3df4c0",
+  "action": "push",
+  "pusher": "suilinfei001",
+  "payload": {
+    "branch": "main",
+    "pusher": "suilinfei001",
+    "timestamp": "2026-02-02T10:50:35Z",
+    "commit_sha": "c8a4aa1f92ff410d1a84a771780aec226a3df4c0",
+    "event_type": "push",
+    "repository": "suilinfei001/TestOpenSourceCIWorkflow",
+    "changed_files": ".github/workflows/webhook-notifier.yml,num1.txt,num10.txt,num11.txt,num12.txt,num13.txt,num14.txt,num15.txt,num16.txt,num17.txt,num18.txt,num19.txt,num2.txt,num20.txt,num21.txt,num22.txt,num23.txt,num24.txt,num25.txt,num26.txt,num27.txt,num28.txt,num29.txt,num3.txt,num30.txt,num31.txt,num32.txt,num33.txt,num34.txt,num35.txt,num36.txt,num37.txt,num38.txt,num39.txt,num4.txt,num40.txt,num41.txt,num42.txt,num43.txt,num44.txt,num45.txt,num46.txt,num47.txt,num48.txt,num49.txt,num5.txt,num50.txt,num51.txt,num52.txt,num53.txt"
+  },
+  "quality_checks": [
+    {
+      "id": 28,
+      "github_event_id": "8aab5cf6-cd10-4a",
+      "check_type": "compilation",
+      "check_status": "pending",
+      "stage": "basic_ci",
+      "stage_order": 1,
+      "check_order": 1,
+      "retry_count": 0,
+      "created_at": "2026-02-10T20:49:11+08:00",
+      "updated_at": "2026-02-10T20:49:11+08:00"
+    },
+    {
+      "id": 29,
+      "github_event_id": "8aab5cf6-cd10-4a",
+      "check_type": "code_lint",
+      "check_status": "pending",
+      "stage": "basic_ci",
+      "stage_order": 1,
+      "check_order": 2,
+      "retry_count": 0,
+      "created_at": "2026-02-10T20:49:11+08:00",
+      "updated_at": "2026-02-10T20:49:11+08:00"
+    },
+    {
+      "id": 30,
+      "github_event_id": "8aab5cf6-cd10-4a",
+      "check_type": "security_scan",
+      "check_status": "pending",
+      "stage": "basic_ci",
+      "stage_order": 1,
+      "check_order": 3,
+      "retry_count": 0,
+      "created_at": "2026-02-10T20:49:11+08:00",
+      "updated_at": "2026-02-10T20:49:11+08:00"
+    },
+    {
+      "id": 31,
+      "github_event_id": "8aab5cf6-cd10-4a",
+      "check_type": "unit_test",
+      "check_status": "pending",
+      "stage": "basic_ci",
+      "stage_order": 1,
+      "check_order": 4,
+      "retry_count": 0,
+      "created_at": "2026-02-10T20:49:11+08:00",
+      "updated_at": "2026-02-10T20:49:11+08:00"
+    },
+    {
+      "id": 32,
+      "github_event_id": "8aab5cf6-cd10-4a",
+      "check_type": "deployment",
+      "check_status": "pending",
+      "stage": "deployment",
+      "stage_order": 2,
+      "check_order": 1,
+      "retry_count": 0,
+      "created_at": "2026-02-10T20:49:11+08:00",
+      "updated_at": "2026-02-10T20:49:11+08:00"
+    },
+    {
+      "id": 33,
+      "github_event_id": "8aab5cf6-cd10-4a",
+      "check_type": "api_test",
+      "check_status": "pending",
+      "stage": "specialized_tests",
+      "stage_order": 3,
+      "check_order": 1,
+      "retry_count": 0,
+      "created_at": "2026-02-10T20:49:11+08:00",
+      "updated_at": "2026-02-10T20:49:11+08:00"
+    },
+    {
+      "id": 34,
+      "github_event_id": "8aab5cf6-cd10-4a",
+      "check_type": "module_e2e",
+      "check_status": "pending",
+      "stage": "specialized_tests",
+      "stage_order": 3,
+      "check_order": 2,
+      "retry_count": 0,
+      "created_at": "2026-02-10T20:49:11+08:00",
+      "updated_at": "2026-02-10T20:49:11+08:00"
+    },
+    {
+      "id": 35,
+      "github_event_id": "8aab5cf6-cd10-4a",
+      "check_type": "agent_e2e",
+      "check_status": "pending",
+      "stage": "specialized_tests",
+      "stage_order": 3,
+      "check_order": 3,
+      "retry_count": 0,
+      "created_at": "2026-02-10T20:49:11+08:00",
+      "updated_at": "2026-02-10T20:49:11+08:00"
+    },
+    {
+      "id": 36,
+      "github_event_id": "8aab5cf6-cd10-4a",
+      "check_type": "ai_e2e",
+      "check_status": "pending",
+      "stage": "specialized_tests",
+      "stage_order": 3,
+      "check_order": 4,
+      "retry_count": 0,
+      "created_at": "2026-02-10T20:49:11+08:00",
+      "updated_at": "2026-02-10T20:49:11+08:00"
+    }
+  ],
+  "created_at": "2026-02-10T20:49:11+08:00",
+  "updated_at": "2026-02-10T20:49:11+08:00"
+}
+
+3. 建立一张task表来跟踪任务的状态，每个task必定绑定一个event事件id和检查项（task名字取值规则：stage+check_type组合，例如：specialized_tests_agent_e2e）.
+4. task还需要一个request_url，这是调度器之后执行task的时候真正调用和监控的对象。request_url在一个池子里，调度器需要按event的具体信息去匹配每一个task所需的request_url。
+5. 记住以上的task有严格的执行顺序execute_order(先对比stage_order，再对比check_order，从小到大排序)，只有当前一个task是pass或者skip，才能创建下一个task，不准一次性创建出所有的task。
+6. 创建task的时候，basic_ci阶段比较特殊，它的4个阶段，只需要创建一个task来跟踪， 这个task返回的结果如下：
+{
+    "task_id":"",
+    "task_name":"basic_ci_all",
+    "request_url":"",
+    "start_time":"".
+    "end_time":"",
+    "status":"",
+    "execute_order":1,
+    "error_message":"",
+    "results":[
+        {
+            "check_type":"compilation",
+            "result":"pass/fail/timeout/canclled/skipped/running",
+            "extra":{
+                "chart":"",
+                "image":""
+            }
+        },
+        {
+            "check_type":"code_lint",
+            "result":"pass/fail/timeout/canclled/skipped/running",
+            "extra":{}
+        },
+        {
+            "check_type":"security_scan",
+            "result":"pass/fail/timeout/canclled/skipped/running",
+            "extra":{}
+        },
+        {
+            "check_type":"unit_test",
+            "result":"pass/fail/timeout/canclled/skipped/running",
+            "extra":{
+                "score":25
+            }
+        }
+    ]
+}
+**部署**
+   - 部署检查，  创建一个task来跟踪， task返回的结果：
+{
+    "task_id":"",
+    "task_name":"deployment_deployment",
+    "request_url":"",
+    "start_time":"".
+    "end_time":"",
+    "status":"",
+    "execute_order":2,
+    "error_message":"",
+    "results":[
+        {
+            "check_type":"deployment",
+            "result":"pass/fail/timeout/canclled/skipped/running",
+            "extra":{
+                "node_ip":"",
+                "node_port":"",
+                "node_user":"",
+                "node_passwd":""
+            }
+        }
+    ]
+}   
+**专项测试**
+   - API 测试，创建一个task来跟踪， task返回的结果：
+{
+    "task_id":"",
+    "task_name":"specialized_tests_api_test",
+    "request_url":"",
+    "start_time":"".
+    "end_time":"",
+    "status":"",
+    "execute_order":3,
+    "error_message":"",
+    "results":[
+        {
+            "check_type":"api_test",
+            "result":"pass/fail/timeout/canclled/skipped/running",
+            "extra":{
+                "error_message":""
+            }
+        }
+    ]
+} 
+**专项测试**
+   - 模块端到端测试，创建一个task来跟踪， task返回的结果：
+{
+    "task_id":"",
+    "task_name":"specialized_tests_module_e2e",
+    "request_url":"",
+    "start_time":"".
+    "end_time":"",
+    "status":"",
+    "execute_order":4,
+    "error_message":"",
+    "results":[
+        {
+            "check_type":"module_e2e",
+            "result":"pass/fail/timeout/canclled/skipped/running",
+            "extra":{
+                "error_message":""
+            }
+        }
+    ]
+} 
+**专项测试**
+   - Agent智能体端到端测试，创建一个task来跟踪， task返回的结果：
+{
+    "task_id":"",
+    "task_name":"specialized_tests_agent_e2e",
+    "request_url":"",
+    "start_time":"".
+    "end_time":"",
+    "status":"",
+    "execute_order":5,
+    "error_message":"",
+    "results":[
+        {
+            "check_type":"agent_e2e",
+            "result":"pass/fail/timeout/canclled/skipped/running",
+            "extra":{
+                "error_message":""
+            }
+        }
+    ]
+} 
+**专项测试**
+   - AI应用端到端测试   ，创建一个task来跟踪， task返回的结果：     
+{
+    "task_id":"",
+    "task_name":"specialized_tests_ai_e2e",
+    "request_url":"",
+    "start_time":"".
+    "end_time":"",
+    "status":"",
+    "execute_order":6,
+    "error_message":"",
+    "results":[
+        {
+            "check_type":"ai_e2e",
+            "result":"pass/fail/timeout/canclled/skipped/running",
+            "extra":{
+                "error_message":""
+            }
+        }
+    ]
+} 
+6. task的status是running的时候，调度器每隔60s检测一次状态。
+7. 每个event的basic_ci_all task的statu变成running的时候，需要调用更新event状态接口，把event的event_status变为processing
+8. 如果event的某个task变成pass或者skipped,那么依次做以下操作：
+    - 调用quality-checks接口来更新单个质量检查的状态或者basic_ci_all调用批量接口更新
+    - 如果不是最后一个阶段（execute_order小于6），则创建下一个阶段的task
+    - 如果已经是最后一个阶段（execute_order等于6），则调用event接口更新状态为completed
+9.  如果event的某个task变成fail或者timeout或者canclled,那么依次做以下操作：
+    - 调用quality-checks接口来更新单个质量检查的状态或者basic_ci_all调用批量接口更新
+    - 调用event接口更新状态为failed
+
+10. 下面是event-receiver提供的更新event事件和质量检查状态接口的说明：
+### 事件管理
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| `GET` | `/api/events` | 获取事件列表 |
+| `GET` | `/api/events/:id` | 获取事件详情 |
+| `PUT` | `/api/events/:id/status` | 更新事件状态 |
+| `DELETE` | `/api/events` | 删除所有事件 |
+
+#### 更新事件状态
+
+更新事件的状态。
+
+```bash
+# PUT /api/events/:id/status
+curl -X PUT "http://10.4.111.141:5001/api/events/1/status" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_status": "completed",
+    "processed_at": "2026-02-10T10:30:00Z"
+  }'
+```
+
+**请求参数：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `event_status` | string | ❌ | 状态：`pending`、`processing`、`completed`、`failed`、`canclled` |
+| `processed_at` | string | ❌ | 处理完成时间（ISO 8601 格式） |
+
+**响应：**
+```json
+{
+  "success": true,
+  "message": "事件状态更新成功",
+  "data": {
+    "id": 1,
+    "event_id": "evt-123",
+    "event_type": "push",
+    "event_status": "completed",
+    "processed_at": "2026-02-10T10:30:00Z",
+    "repository": "owner/repo",
+    "branch": "main",
+    "commit_sha": "abc123",
+    "created_at": "2026-02-10T10:00:00Z",
+    "updated_at": "2026-02-10T10:30:00Z"
+  }
+}
+```
+
+### 质量检查
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| `GET` | `/api/events/:eventID/quality-checks` | 获取质量检查列表 |
+| `PUT` | `/api/quality-checks/:id` | 更新质量检查状态 |
+| `PUT` | `/api/events/:eventID/quality-checks/batch` | 批量更新质量检查 |
+
+#### 更新质量检查状态
+
+更新单个质量检查的状态。
+
+```bash
+# PUT /api/quality-checks/:id
+curl -X PUT "http://10.4.111.141:5001/api/quality-checks/1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "check_status": "passed",
+    "error_message": null,
+    "output": "所有测试通过",
+    "duration_seconds": 15.5
+  }'
+```
+
+**请求参数：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `check_status` | string | ❌ | 状态：`pending`、`running`、`passed`、`failed`、`skipped`、`cancelled` |
+| `error_message` | string | ❌ | 错误信息（失败时） |
+| `output` | string | ❌ | 输出日志 |
+| `duration_seconds` | number | ❌ | 持续时间（秒） |
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "github_event_id": "evt-123",
+    "check_type": "compilation",
+    "check_status": "passed",
+    "stage": "basic_ci",
+    "stage_order": 1,
+    "check_order": 1,
+    "started_at": "2026-02-10T10:00:00Z",
+    "completed_at": "2026-02-10T10:00:15Z",
+    "duration_seconds": 15.5,
+    "error_message": null,
+    "output": "所有测试通过",
+    "retry_count": 0,
+    "created_at": "2026-02-10T10:00:00Z",
+    "updated_at": "2026-02-10T10:00:15Z"
+  }
+}
+```
+
+#### 批量更新质量检查
+
+批量更新事件的质量检查。当所有检查都完成时，事件状态会自动更新为 `completed`。
+
+```bash
+# PUT /api/events/:eventID/quality-checks/batch
+curl -X PUT "http://10.4.111.141:5001/api/events/1/quality-checks/batch" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "quality_checks": [
+      {
+        "id": 1,
+        "check_status": "passed",
+        "started_at": "2026-02-10T10:00:00Z",
+        "completed_at": "2026-02-10T10:00:05Z",
+        "duration_seconds": 5.0,
+        "error_message": null,
+        "output": "编译成功"
+      },
+      {
+        "id": 2,
+        "check_status": "passed",
+        "started_at": "2026-02-10T10:00:05Z",
+        "completed_at": "2026-02-10T10:00:08Z",
+        "duration_seconds": 3.0,
+        "error_message": null,
+        "output": "代码检查通过"
+      },
+      {
+        "id": 3,
+        "check_status": "failed",
+        "started_at": "2026-02-10T10:00:08Z",
+        "completed_at": "2026-02-10T10:00:15Z",
+        "duration_seconds": 7.0,
+        "error_message": "测试失败：断言错误",
+        "output": "运行测试中...\n测试 1: 通过\n测试 2: 失败"
+      }
+    ]
+  }'
+```
+
+**请求参数：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `quality_checks` | array | ✅ | 质量检查更新数组 |
+| `quality_checks[].id` | number | ✅ | 质量检查 ID |
+| `quality_checks[].check_status` | string | ❌ | 状态：`pending`、`running`、`passed`、`failed`、`skipped`、`cancelled` |
+| `quality_checks[].started_at` | string | ❌ | 开始时间（ISO 8601 格式） |
+| `quality_checks[].completed_at` | string | ❌ | 完成时间（ISO 8601 格式） |
+| `quality_checks[].duration_seconds` | number | ❌ | 持续时间（秒） |
+| `quality_checks[].error_message` | string | ❌ | 错误信息（失败时） |
+| `quality_checks[].output` | string | ❌ | 输出日志 |
+
+**响应：**
+```json
+{
+  "success": true,
+  "message": "成功更新 3 个质量检查项",
+  "data": [
+    {
+      "id": 1,
+      "github_event_id": "evt-123",
+      "check_type": "compilation",
+      "check_status": "passed",
+      "stage": "basic_ci",
+      "stage_order": 1,
+      "check_order": 1,
+      "started_at": "2026-02-10T10:00:00Z",
+      "completed_at": "2026-02-10T10:00:05Z",
+      "duration_seconds": 5.0,
+      "error_message": null,
+      "output": "编译成功",
+      "retry_count": 0,
+      "created_at": "2026-02-10T10:00:00Z",
+      "updated_at": "2026-02-10T10:00:15Z"
+    },
+    {
+      "id": 2,
+      "github_event_id": "evt-123",
+      "check_type": "code_lint",
+      "check_status": "passed",
+      "stage": "basic_ci",
+      "stage_order": 1,
+      "check_order": 2,
+      "started_at": "2026-02-10T10:00:05Z",
+      "completed_at": "2026-02-10T10:00:08Z",
+      "duration_seconds": 3.0,
+      "error_message": null,
+      "output": "代码检查通过",
+      "retry_count": 0,
+      "created_at": "2026-02-10T10:00:00Z",
+      "updated_at": "2026-02-10T10:00:15Z"
+    },
+    {
+      "id": 3,
+      "github_event_id": "evt-123",
+      "check_type": "security_scan",
+      "check_status": "failed",
+      "stage": "basic_ci",
+      "stage_order": 1,
+      "check_order": 3,
+      "started_at": "2026-02-10T10:00:08Z",
+      "completed_at": "2026-02-10T10:00:15Z",
+      "duration_seconds": 7.0,
+      "error_message": "测试失败：断言错误",
+      "output": "运行测试中...\n测试 1: 通过\n测试 2: 失败",
+      "retry_count": 0,
+      "created_at": "2026-02-10T10:00:00Z",
+      "updated_at": "2026-02-10T10:00:15Z"
+    }
+  ]
+}
+
+11. 如果是是pull request事件，需要特殊处理这些event的task创建：
+   - 如果PR的状态是open，那么说明是第一次创建，执行以上task的相关逻辑
+   - 如果PR的状态是synchronize,那么说明是已经存在的PR发生了一次变更，需要重新特殊处理：
+      a. 首先获取这个event对应的data.payload.pr_url,再通过这个pr_url找到其他拥有同样的pr_url的event，最后形成一个event列表
+      b. 获取有效的的event来触发新的task来执行或者等待已存在的task继续执行，策略如下：
+         - 优先处理：event_status是pending的，维持pending的状态，不要立马创建task和修改状态，等待最终有效的event被筛选出来。
+         - event_status是completed或者failed的，直接从这个event列表删除。
+         - event_status是processing的，如果event列表中就只有它自己本身，那么目标event就是它。
+         - event_status是processing的，如果event列表中还有其他pending状态的event，那么对比它们的created_at值，最新的就是目标event。
+      c. 拿到目标event后续处理：
+         - event列表中的其他event，pengding的event直接更新状态为completed
+         - event列表中的其他event，processing的event，获取它对应的status是running的task，直接更新task字段为canclled，并调用task中的canclled_request_url终止任务。最后更新quality_check对应的阶段为cancllled，event更新为canclled
+      d. 处理目标event：
+         - 如果event是processing，不用处理，持续监控
+         - 如果event是pendding，按照task正常的逻辑处理即可
+12. Task中要求的request_url和 cancelled_reequest_url暂时使用Mock，暂时不对接真实的质量系统，请帮忙Mock掉这部分的内容，包括接受请求和返回结果

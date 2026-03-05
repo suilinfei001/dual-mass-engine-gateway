@@ -1,0 +1,23 @@
+# 使用本地构建的二进制文件
+# 使用 Ubuntu 基础镜像，兼容 glibc
+FROM acr.aishu.cn/public/ubuntu:22.04.20241202
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd -r app && useradd -r -g app app
+WORKDIR /app
+
+# Copy locally built binary
+COPY ./quality-server /app/quality-server
+COPY ./internal/quality/data /usr/local/share/quality-data
+
+RUN chmod +x /app/quality-server && \
+    mkdir -p /data && chown -R app:app /data /app
+
+USER app
+EXPOSE 5001
+VOLUME ["/data"]
+ENV GITHUB_TOKEN=""
+CMD ["/app/quality-server", "-addr", ":5001"]

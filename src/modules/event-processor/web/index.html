@@ -1,0 +1,2010 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Processor Dashboard</title>
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --primary-hover: #4f46e5;
+            --success-color: #22c55e;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --info-color: #3b82f6;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: var(--card-bg);
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header h1 .icon {
+            color: var(--primary-color);
+            font-size: 28px;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .user-role {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .user-role.admin {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .user-role.user {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .btn {
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-info {
+            background: var(--info-color);
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #2563eb;
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #16a34a;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+        }
+
+        .btn-outline:hover {
+            background: #f1f5f9;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 450px;
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .modal-header .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .modal-header p {
+            font-size: 14px;
+            opacity: 0.9;
+            margin: 8px 0 0 0;
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--text-color);
+        }
+
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 24px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-muted);
+            transition: all 0.2s;
+        }
+
+        .auth-tab.active {
+            background: white;
+            color: var(--primary-color);
+            box-shadow: var(--shadow);
+        }
+
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+        }
+
+        .form-error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .form-success {
+            background: #dcfce7;
+            color: #166534;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .forgot-password {
+            text-align: right;
+            margin-top: -12px;
+            margin-bottom: 16px;
+        }
+
+        .forgot-password a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .forgot-password a:hover {
+            text-decoration: underline;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            background: var(--card-bg);
+            padding: 8px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .tab {
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--text-muted);
+            transition: all 0.2s;
+            border: none;
+            background: transparent;
+        }
+
+        .tab.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .tab:hover:not(.active) {
+            background: #f1f5f9;
+        }
+
+        .content {
+            display: none;
+        }
+
+        .content.active {
+            display: block;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 16px;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-lg);
+        }
+
+        .card-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .card-header:hover {
+            background: #f8fafc;
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .card-title h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .card-body {
+            padding: 20px;
+            display: none;
+        }
+
+        .card-body.expanded {
+            display: block;
+        }
+
+        .event-type-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .event-type-badge.push {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .event-type-badge.pull_request {
+            background: #fce7f3;
+            color: #be185d;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-badge.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-badge.running {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .status-badge.passed, .status-badge.completed {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-badge.failed, .status-badge.timeout {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-badge.cancelled, .status-badge.skipped {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: var(--text-color);
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-color);
+        }
+
+        .stat-value.success { color: var(--success-color); }
+        .stat-value.warning { color: var(--warning-color); }
+        .stat-value.danger { color: var(--danger-color); }
+        .stat-value.info { color: var(--info-color); }
+
+        .chevron {
+            transition: transform 0.2s;
+            font-size: 20px;
+        }
+
+        .chevron.expanded {
+            transform: rotate(180deg);
+        }
+
+        .error-details {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: #fef2f2;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #991b1b;
+        }
+
+        .resource-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 16px;
+            padding: 20px;
+        }
+
+        .resource-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .resource-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .resource-repo {
+            font-size: 13px;
+            color: var(--primary-color);
+            margin-top: 4px;
+        }
+
+        .resource-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        .resource-meta {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .resource-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .task-item {
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .task-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .task-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            font-size: 13px;
+        }
+
+        .task-detail-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .task-detail-label {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .task-detail-value {
+            font-weight: 500;
+        }
+
+        .task-results {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .task-results-title {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+        }
+
+        .result-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        .result-icon {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .result-icon.pass { color: var(--success-color); }
+        .result-icon.fail { color: var(--danger-color); }
+
+        .stages-container {
+            margin-top: 24px;
+        }
+
+        .stages-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-color);
+        }
+
+        .stage {
+            margin-bottom: 20px;
+        }
+
+        .stage-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .stage-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .checks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+        }
+
+        .check-item {
+            background: #f8fafc;
+            padding: 12px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .check-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .check-icon.pending { background: #fef3c7; color: #92400e; }
+        .check-icon.running { background: #dbeafe; color: #1d4ed8; animation: pulse 1.5s infinite; }
+        .check-icon.passed { background: #dcfce7; color: #166534; }
+        .check-icon.failed, .check-icon.timeout { background: #fee2e2; color: #991b1b; }
+        .check-icon.cancelled, .check-icon.skipped { background: #f1f5f9; color: #475569; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .check-info {
+            flex: 1;
+        }
+
+        .check-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .check-duration {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .console-section {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .console-section .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .config-form {
+            max-width: 800px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .user-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .user-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-info-text {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .user-name-text {
+            font-weight: 500;
+        }
+
+        .user-email-text {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><span class="icon">&#9881;</span> Event Processor Dashboard</h1>
+            <div class="header-actions">
+                <button class="btn btn-primary" onclick="refreshData()">
+                    &#8635; 刷新
+                </button>
+                <div id="user-info" class="user-info" style="display: none;">
+                    <span id="user-name"></span>
+                    <span id="user-role-badge" class="user-role"></span>
+                </div>
+                <button id="login-btn" class="btn btn-info" onclick="openAuthModal()">
+                    &#128100; 登录
+                </button>
+                <button id="logout-btn" class="btn btn-danger" onclick="logout()" style="display: none;">
+                    &#128679; 登出
+                </button>
+            </div>
+        </div>
+
+        <div id="auth-modal" class="modal" onclick="closeAuthModalOnOutside(event)">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <div class="icon">&#128274;</div>
+                    <h2 id="auth-title">用户登录</h2>
+                    <p id="auth-subtitle">请输入您的凭证以继续</p>
+                </div>
+                <div class="modal-body">
+                    <div class="auth-tabs" id="auth-tabs">
+                        <button class="auth-tab active" data-auth="login">登录</button>
+                        <button class="auth-tab" data-auth="register">注册</button>
+                    </div>
+
+                    <div id="auth-error" class="form-error" style="display: none;"></div>
+                    <div id="auth-success" class="form-success" style="display: none;"></div>
+
+                    <div id="login-form" class="auth-form active">
+                        <div class="form-group">
+                            <label>&#128100; 用户名</label>
+                            <input type="text" id="login-username" placeholder="请输入用户名">
+                        </div>
+                        <div class="form-group">
+                            <label>&#128274; 密码</label>
+                            <input type="password" id="login-password" placeholder="请输入密码">
+                        </div>
+                        <div class="forgot-password">
+                            <a href="#" onclick="showForgotPassword()">忘记密码？</a>
+                        </div>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="login()">
+                            登录 →
+                        </button>
+                    </div>
+
+                    <div id="register-form" class="auth-form">
+                        <div class="form-group">
+                            <label>&#128231; 邮箱</label>
+                            <input type="email" id="register-email" placeholder="请输入邮箱 (必须为 @aishu.cn 后缀)">
+                        </div>
+                        <div class="form-group">
+                            <label>&#128274; 密码</label>
+                            <input type="password" id="register-password" placeholder="请输入密码">
+                        </div>
+                        <div class="form-group">
+                            <label>&#128274; 确认密码</label>
+                            <input type="password" id="register-confirm" placeholder="请再次输入密码">
+                        </div>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="register()">
+                            注册 →
+                        </button>
+                    </div>
+
+                    <div id="forgot-form" class="auth-form">
+                        <p style="text-align: center; color: var(--text-muted); margin-bottom: 20px;">
+                            如需重置密码，请联系管理员：<br>
+                            <strong style="color: var(--primary-color);">Yabo.sui@aishu.cn</strong>
+                        </p>
+                        <button class="btn btn-outline" style="width: 100%;" onclick="backToLogin()">
+                            ← 返回登录
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="resource-modal" class="modal">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <div class="icon">&#128230;</div>
+                    <h2 id="resource-modal-title">创建可执行资源</h2>
+                    <p>填写资源信息</p>
+                </div>
+                <div class="modal-body">
+                    <div id="resource-error" class="form-error" style="display: none;"></div>
+                    <div class="form-group">
+                        <label>资源名称 *</label>
+                        <input type="text" id="resource-name" placeholder="请输入资源名称">
+                    </div>
+                    <div class="form-group">
+                        <label>仓库路径 *</label>
+                        <input type="text" id="resource-repo" placeholder="例如: dual-mass-engine-gateway">
+                    </div>
+                    <div class="form-group">
+                        <label>描述</label>
+                        <textarea id="resource-desc" placeholder="请输入资源描述"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-outline" style="flex: 1;" onclick="closeResourceModal()">取消</button>
+                        <button class="btn btn-primary" style="flex: 1;" onclick="saveResource()">保存</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tasks-modal" class="modal">
+            <div class="modal-content" style="max-width: 900px; max-height: 80vh;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6);">
+                    <div class="icon">&#128203;</div>
+                    <h2 id="tasks-modal-title">Event Tasks</h2>
+                    <p id="tasks-modal-subtitle">Event ID: -</p>
+                </div>
+                <div class="modal-body" style="max-height: 60vh; overflow-y: auto; padding: 20px;">
+                    <div id="tasks-modal-content">
+                        <div class="loading"><div class="spinner"></div></div>
+                    </div>
+                </div>
+                <div style="padding: 16px 20px; border-top: 1px solid var(--border-color); text-align: right;">
+                    <button class="btn btn-outline" onclick="closeTasksModal()">关闭</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tabs" id="main-tabs">
+            <button class="tab active" data-tab="events">Events</button>
+            <button class="tab" data-tab="resources" id="resources-tab" style="display: none;">可执行资源</button>
+            <button class="tab" data-tab="console" id="console-tab" style="display: none;">控制台</button>
+            <button class="tab" data-tab="my-resources" id="my-tab" style="display: none;">我的</button>
+        </div>
+
+        <div id="events-content" class="content active">
+            <div class="stats-grid" id="events-stats"></div>
+            <div id="events-list"></div>
+        </div>
+
+        <div id="resources-content" class="content">
+            <div class="section-header">
+                <h2 class="section-title">可执行资源列表</h2>
+            </div>
+            <div id="resources-list"></div>
+        </div>
+
+        <div id="console-content" class="content">
+            <div class="console-section">
+                <h3 class="section-title">AI 智能匹配配置</h3>
+                <div class="config-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>AI 服务 IP</label>
+                            <input type="text" id="ai-ip" placeholder="例如: 10.4.111.141:8080">
+                        </div>
+                        <div class="form-group">
+                            <label>模型名称</label>
+                            <input type="text" id="ai-model" placeholder="例如: gpt-4">
+                        </div>
+                        <div class="form-group">
+                            <label>Token</label>
+                            <input type="text" id="ai-token" placeholder="ADP 应用账号 Token">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveAIConfig()">保存 AI 配置</button>
+                </div>
+            </div>
+
+            <div class="console-section">
+                <h3 class="section-title">Azure DevOps 配置</h3>
+                <div class="config-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>PAT (Personal Access Token)</label>
+                            <input type="password" id="azure-pat" placeholder="输入 Azure DevOps PAT">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveAzurePAT()">保存 PAT</button>
+                </div>
+            </div>
+
+            <div class="console-section">
+                <h3 class="section-title">Event Receiver 配置</h3>
+                <div class="config-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Event Receiver IP</label>
+                            <input type="text" id="event-receiver-ip" placeholder="例如: 10.4.111.141:5001">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveEventReceiverIP()">保存配置</button>
+                </div>
+            </div>
+
+            <div class="console-section">
+                <h3 class="section-title">用户密码管理</h3>
+                <div class="config-form">
+                    <div class="form-row" style="margin-bottom: 20px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label>搜索用户</label>
+                            <input type="text" id="user-search" placeholder="输入用户名或邮箱搜索" oninput="searchUsers()">
+                        </div>
+                    </div>
+                    
+                    <div id="user-list" class="user-list"></div>
+                    
+                    <div id="pagination" class="pagination" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="color: var(--text-muted); font-size: 14px;">
+                            共 <span id="total-users">0</span> 个用户
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <button class="btn btn-outline btn-sm" id="prev-page" onclick="changePage(-1)" disabled>
+                                上一页
+                            </button>
+                            <span style="font-size: 14px; min-width: 80px; text-align: center;">
+                                第 <span id="current-page">1</span> / <span id="total-pages">1</span> 页
+                            </span>
+                            <button class="btn btn-outline btn-sm" id="next-page" onclick="changePage(1)" disabled>
+                                下一页
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="console-section">
+                <h3 class="section-title">数据清理</h3>
+                <div class="config-form">
+                    <p style="color: var(--text-muted); margin-bottom: 16px;">清理所有任务和可执行资源数据，此操作不可恢复。</p>
+                    <button class="btn btn-danger" onclick="clearAllData()">🗑️ 一键清理所有数据</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="my-resources-content" class="content">
+            <div class="section-header">
+                <h2 class="section-title">我的可执行资源</h2>
+                <button class="btn btn-success" onclick="openResourceModal()">
+                    ➕ 创建资源
+                </button>
+            </div>
+            <div id="my-resources-list"></div>
+        </div>
+
+        <div id="password-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="icon">🔐</div>
+                    <h2>修改用户密码</h2>
+                    <p id="password-modal-user"></p>
+                </div>
+                <div class="modal-body">
+                    <div id="password-error" class="form-error" style="display: none;"></div>
+                    <div class="form-group">
+                        <label>新密码</label>
+                        <div style="position: relative;">
+                            <input type="password" id="new-password" placeholder="请输入新密码">
+                            <button class="btn btn-outline btn-sm" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);" onclick="generateRandomPassword()">
+                                随机密码
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>确认密码</label>
+                        <input type="password" id="confirm-new-password" placeholder="请再次输入新密码">
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-outline" style="flex: 1;" onclick="closePasswordModal()">取消</button>
+                        <button class="btn btn-primary" style="flex: 1;" onclick="updateUserPassword()">确定</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let eventsData = [];
+        let resourcesData = [];
+        let currentUser = null;
+        let editingResourceId = null;
+        let editingUserId = null;
+        let currentPage = 1;
+        let totalPages = 1;
+        let totalUsers = 0;
+        let isSearching = false;
+
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                const contentId = tab.dataset.tab + '-content';
+                document.getElementById(contentId).classList.add('active');
+            });
+        });
+
+        document.querySelectorAll('.auth-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+                tab.classList.add('active');
+                const formId = tab.dataset.auth + '-form';
+                document.getElementById(formId).classList.add('active');
+                updateAuthTitle(tab.dataset.auth);
+            });
+        });
+
+        function updateAuthTitle(type) {
+            const title = document.getElementById('auth-title');
+            const subtitle = document.getElementById('auth-subtitle');
+            if (type === 'login') {
+                title.textContent = '用户登录';
+                subtitle.textContent = '请输入您的凭证以继续';
+            } else if (type === 'register') {
+                title.textContent = '用户注册';
+                subtitle.textContent = '注册后可创建和管理可执行资源';
+            }
+        }
+
+        function showForgotPassword() {
+            document.querySelectorAll('.auth-tab').forEach(t => t.style.display = 'none');
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+            document.getElementById('forgot-form').classList.add('active');
+            document.getElementById('auth-title').textContent = '忘记密码';
+            document.getElementById('auth-subtitle').textContent = '密码重置帮助';
+        }
+
+        function backToLogin() {
+            document.querySelectorAll('.auth-tab').forEach(t => t.style.display = '');
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+            document.getElementById('login-form').classList.add('active');
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector('.auth-tab[data-auth="login"]').classList.add('active');
+            updateAuthTitle('login');
+        }
+
+        function openAuthModal() {
+            document.getElementById('auth-modal').classList.add('active');
+            document.getElementById('auth-error').style.display = 'none';
+            document.getElementById('auth-success').style.display = 'none';
+            backToLogin();
+        }
+
+        function closeAuthModal() {
+            document.getElementById('auth-modal').classList.remove('active');
+        }
+
+        function closeAuthModalOnOutside(event) {
+            if (event.target.id === 'auth-modal') {
+                closeAuthModal();
+            }
+        }
+
+        function openResourceModal(resource = null) {
+            editingResourceId = resource ? resource.id : null;
+            document.getElementById('resource-modal-title').textContent = resource ? '编辑可执行资源' : '创建可执行资源';
+            document.getElementById('resource-name').value = resource ? resource.name : '';
+            document.getElementById('resource-repo').value = resource ? resource.repo_path : '';
+            document.getElementById('resource-desc').value = resource ? resource.description : '';
+            document.getElementById('resource-error').style.display = 'none';
+            document.getElementById('resource-modal').classList.add('active');
+        }
+
+        function closeResourceModal() {
+            document.getElementById('resource-modal').classList.remove('active');
+            editingResourceId = null;
+        }
+
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch(API_BASE + '/api/auth/status', { credentials: 'include' });
+                const data = await response.json();
+                if (data.loggedIn) {
+                    currentUser = data.user;
+                    updateUIForLoggedInUser();
+                } else {
+                    currentUser = null;
+                    updateUIForLoggedOutUser();
+                }
+            } catch (error) {
+                currentUser = null;
+                updateUIForLoggedOutUser();
+            }
+        }
+
+        function updateUIForLoggedInUser() {
+            document.getElementById('login-btn').style.display = 'none';
+            document.getElementById('logout-btn').style.display = 'flex';
+            document.getElementById('user-info').style.display = 'flex';
+            document.getElementById('user-name').textContent = currentUser.username;
+            const roleBadge = document.getElementById('user-role-badge');
+            roleBadge.textContent = currentUser.role === 'admin' ? '管理员' : '用户';
+            roleBadge.className = 'user-role ' + currentUser.role;
+
+            if (currentUser.role === 'admin') {
+                document.getElementById('resources-tab').style.display = 'block';
+                document.getElementById('console-tab').style.display = 'block';
+                document.getElementById('my-tab').style.display = 'none';
+            } else {
+                document.getElementById('resources-tab').style.display = 'none';
+                document.getElementById('console-tab').style.display = 'none';
+                document.getElementById('my-tab').style.display = 'block';
+            }
+
+            loadResources();
+            if (currentUser.role === 'admin') {
+                loadConfig();
+                loadAllUsers();
+            }
+        }
+
+        function updateUIForLoggedOutUser() {
+            document.getElementById('login-btn').style.display = 'flex';
+            document.getElementById('logout-btn').style.display = 'none';
+            document.getElementById('user-info').style.display = 'none';
+            document.getElementById('resources-tab').style.display = 'none';
+            document.getElementById('my-tab').style.display = 'none';
+            document.getElementById('clear-db-btn').style.display = 'none';
+        }
+
+        async function login() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            if (!username || !password) {
+                showAuthError('请输入用户名和密码');
+                return;
+            }
+
+            try {
+                const response = await fetch(API_BASE + '/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    currentUser = data.user;
+                    closeAuthModal();
+                    updateUIForLoggedInUser();
+                } else {
+                    showAuthError(data.message || '登录失败');
+                }
+            } catch (error) {
+                showAuthError('登录失败: ' + error.message);
+            }
+        }
+
+        async function register() {
+            const email = document.getElementById('register-email').value.trim();
+            const password = document.getElementById('register-password').value;
+            const confirm = document.getElementById('register-confirm').value;
+
+            if (!email || !password || !confirm) {
+                showAuthError('请填写所有字段');
+                return;
+            }
+
+            if (!email.endsWith('@aishu.cn')) {
+                showAuthError('邮箱后缀必须为 @aishu.cn');
+                return;
+            }
+
+            if (password !== confirm) {
+                showAuthError('两次输入的密码不一致');
+                return;
+            }
+
+            const username = email.split('@')[0];
+
+            try {
+                const response = await fetch(API_BASE + '/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, username, password })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showAuthSuccess('注册成功！请登录');
+                    setTimeout(() => {
+                        document.querySelector('.auth-tab[data-auth="login"]').click();
+                    }, 1500);
+                } else {
+                    showAuthError(data.message || '注册失败');
+                }
+            } catch (error) {
+                showAuthError('注册失败: ' + error.message);
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch(API_BASE + '/api/auth/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                currentUser = null;
+                updateUIForLoggedOutUser();
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        }
+
+        function showAuthError(message) {
+            const el = document.getElementById('auth-error');
+            el.textContent = message;
+            el.style.display = 'block';
+            document.getElementById('auth-success').style.display = 'none';
+        }
+
+        function showAuthSuccess(message) {
+            const el = document.getElementById('auth-success');
+            el.textContent = message;
+            el.style.display = 'block';
+            document.getElementById('auth-error').style.display = 'none';
+        }
+
+        async function loadResources() {
+            try {
+                const response = await fetch(API_BASE + '/api/resources', { credentials: 'include' });
+                const data = await response.json();
+                if (data.success) {
+                    resourcesData = data.data || [];
+                    renderResources();
+                }
+            } catch (error) {
+                console.error('Failed to load resources:', error);
+            }
+        }
+
+        function renderResources() {
+            const isAdmin = currentUser && currentUser.role === 'admin';
+            const containerId = isAdmin ? 'resources-list' : 'my-resources-list';
+            const container = document.getElementById(containerId);
+
+            if (!resourcesData || resourcesData.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">&#128230;</div><h3>暂无可执行资源</h3><p>点击"创建资源"添加新的可执行资源</p></div>';
+                return;
+            }
+
+            let filteredResources = resourcesData;
+            if (!isAdmin) {
+                filteredResources = resourcesData.filter(r => r.created_by === currentUser.id);
+            }
+
+            if (filteredResources.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">&#128230;</div><h3>暂无可执行资源</h3><p>点击"创建资源"添加新的可执行资源</p></div>';
+                return;
+            }
+
+            let html = '';
+            filteredResources.forEach(resource => {
+                html += '<div class="resource-card">' +
+                    '<div class="resource-header">' +
+                    '<div>' +
+                    '<div class="resource-name">' + escapeHtml(resource.name) + '</div>' +
+                    '<div class="resource-repo">' + escapeHtml(resource.repo_path) + '</div>' +
+                    (resource.description ? '<div class="resource-desc">' + escapeHtml(resource.description) + '</div>' : '') +
+                    '</div>' +
+                    '<div class="resource-actions">' +
+                    (isAdmin ? '' : '<button class="btn btn-outline btn-sm" onclick="openResourceModal(resourcesData.find(r => r.id === ' + resource.id + '))">✏️ 编辑</button>') +
+                    (isAdmin ? '' : '<button class="btn btn-danger btn-sm" onclick="deleteResource(' + resource.id + ')">🗑️ 删除</button>') +
+                    '</div>' +
+                    '</div>' +
+                    '<div class="resource-meta">' +
+                    '<span>创建时间: ' + formatDateTime(resource.created_at) + '</span>' +
+                    '</div>' +
+                    '</div>';
+            });
+            container.innerHTML = html;
+        }
+
+        async function saveResource() {
+            const name = document.getElementById('resource-name').value.trim();
+            const repoPath = document.getElementById('resource-repo').value.trim();
+            const description = document.getElementById('resource-desc').value.trim();
+
+            if (!name || !repoPath) {
+                document.getElementById('resource-error').textContent = '请填写资源名称和仓库路径';
+                document.getElementById('resource-error').style.display = 'block';
+                return;
+            }
+
+            const payload = { name, repo_path: repoPath, description };
+            const url = editingResourceId 
+                ? API_BASE + '/api/resources/' + editingResourceId 
+                : API_BASE + '/api/resources';
+            const method = editingResourceId ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    closeResourceModal();
+                    loadResources();
+                } else {
+                    document.getElementById('resource-error').textContent = data.message || '保存失败';
+                    document.getElementById('resource-error').style.display = 'block';
+                }
+            } catch (error) {
+                document.getElementById('resource-error').textContent = '保存失败: ' + error.message;
+                document.getElementById('resource-error').style.display = 'block';
+            }
+        }
+
+        async function deleteResource(id) {
+            if (!confirm('确定要删除这个资源吗？')) return;
+
+            try {
+                const response = await fetch(API_BASE + '/api/resources/' + id, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    loadResources();
+                } else {
+                    alert('删除失败: ' + (data.message || '未知错误'));
+                }
+            } catch (error) {
+                alert('删除失败: ' + error.message);
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                const response = await fetch(API_BASE + '/api/admin/config', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                if (data.success && data.data) {
+                    if (data.data.ai_ip) document.getElementById('ai-ip').value = data.data.ai_ip.value || '';
+                    if (data.data.ai_model) document.getElementById('ai-model').value = data.data.ai_model.value || '';
+                    if (data.data.ai_token) document.getElementById('ai-token').value = data.data.ai_token.value || '';
+                    if (data.data.azure_pat) document.getElementById('azure-pat').value = data.data.azure_pat.value || '';
+                    if (data.data.event_receiver_ip) document.getElementById('event-receiver-ip').value = data.data.event_receiver_ip.value || '';
+                }
+            } catch (error) {
+                console.error('Failed to load config:', error);
+            }
+        }
+
+        async function saveAIConfig() {
+            const ip = document.getElementById('ai-ip').value.trim();
+            const model = document.getElementById('ai-model').value.trim();
+            const token = document.getElementById('ai-token').value.trim();
+
+            try {
+                const response = await fetch(API_BASE + '/api/admin/config/ai', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ ip, model, token })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('AI 配置已保存');
+                } else {
+                    alert('保存失败: ' + (data.message || '未知错误'));
+                }
+            } catch (error) {
+                alert('保存失败: ' + error.message);
+            }
+        }
+
+        async function saveAzurePAT() {
+            const pat = document.getElementById('azure-pat').value.trim();
+            if (!pat) {
+                alert('请输入 PAT');
+                return;
+            }
+
+            try {
+                const response = await fetch(API_BASE + '/api/admin/config/azure-pat', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ pat })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('Azure PAT 已保存');
+                } else {
+                    alert('保存失败: ' + (data.message || '未知错误'));
+                }
+            } catch (error) {
+                alert('保存失败: ' + error.message);
+            }
+        }
+
+        async function saveEventReceiverIP() {
+            const ip = document.getElementById('event-receiver-ip').value.trim();
+            if (!ip) {
+                alert('请输入 Event Receiver IP');
+                return;
+            }
+
+            try {
+                const response = await fetch(API_BASE + '/api/admin/config/event-receiver', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ ip })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('Event Receiver IP 已保存');
+                } else {
+                    alert('保存失败: ' + (data.message || '未知错误'));
+                }
+            } catch (error) {
+                alert('保存失败: ' + error.message);
+            }
+        }
+
+        async function searchUsers() {
+            const query = document.getElementById('user-search').value.trim();
+            if (!query) {
+                loadAllUsers();
+                return;
+            }
+
+            isSearching = true;
+            try {
+                const response = await fetch(API_BASE + '/api/admin/users?search=' + encodeURIComponent(query), {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                console.log('Search response:', data);
+                if (data.success && data.data && Array.isArray(data.data)) {
+                    renderUserList(data.data);
+                    document.getElementById('pagination').style.display = 'none';
+                } else {
+                    document.getElementById('user-list').innerHTML = '<p style="padding: 12px; color: var(--text-muted);">' + (data.message || '未找到用户') + '</p>';
+                    document.getElementById('pagination').style.display = 'none';
+                }
+            } catch (error) {
+                document.getElementById('user-list').innerHTML = '<p style="padding: 12px; color: var(--danger-color);">搜索失败: ' + error.message + '</p>';
+                document.getElementById('pagination').style.display = 'none';
+            } finally {
+                isSearching = false;
+            }
+        }
+
+        async function loadAllUsers() {
+            isSearching = false;
+            try {
+                const response = await fetch(API_BASE + '/api/admin/users/paginated?page=' + currentPage + '&pageSize=10', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                if (data.success && data.data) {
+                    renderUserList(data.data.users);
+                    updatePagination(data.data);
+                    document.getElementById('pagination').style.display = 'flex';
+                } else {
+                    document.getElementById('user-list').innerHTML = '<p style="padding: 12px; color: var(--text-muted);">未找到用户</p>';
+                    document.getElementById('pagination').style.display = 'none';
+                }
+            } catch (error) {
+                document.getElementById('user-list').innerHTML = '<p style="padding: 12px; color: var(--danger-color);">加载失败: ' + error.message + '</p>';
+                document.getElementById('pagination').style.display = 'none';
+            }
+        }
+
+        function updatePagination(data) {
+            totalUsers = data.total;
+            currentPage = data.page;
+            totalPages = data.totalPages;
+            
+            document.getElementById('total-users').textContent = totalUsers;
+            document.getElementById('current-page').textContent = currentPage;
+            document.getElementById('total-pages').textContent = totalPages;
+            
+            document.getElementById('prev-page').disabled = currentPage === 1;
+            document.getElementById('next-page').disabled = currentPage === totalPages;
+        }
+
+        function changePage(direction) {
+            const newPage = currentPage + direction;
+            if (newPage >= 1 && newPage <= totalPages) {
+                currentPage = newPage;
+                loadAllUsers();
+            }
+        }
+
+        function renderUserList(users) {
+            if (!users || users.length === 0) {
+                document.getElementById('user-list').innerHTML = '<p style="padding: 12px; color: var(--text-muted);">未找到用户</p>';
+                return;
+            }
+
+            let html = '';
+            users.forEach(user => {
+                const isAdmin = user.role === 'admin';
+                html += '<div class="user-item">' +
+                    '<div class="user-info-text">' +
+                    '<span class="user-name-text">' + escapeHtml(user.username) + ' (' + user.role + ')</span>' +
+                    '<span class="user-email-text">' + escapeHtml(user.email || '-') + '</span>' +
+                    '</div>';
+                
+                if (!isAdmin) {
+                    html += '<button class="btn btn-outline btn-sm" onclick="openPasswordModal(' + user.id + ', \'' + escapeHtml(user.username) + '\')">重置密码</button>';
+                } else {
+                    html += '<span style="color: var(--text-muted); font-size: 14px;">系统管理员</span>';
+                }
+                
+                html += '</div>';
+            });
+            document.getElementById('user-list').innerHTML = html;
+        }
+
+        function generateRandomPassword() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let password = '';
+            for (let i = 0; i < 12; i++) {
+                password += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('new-password').value = password;
+            document.getElementById('confirm-new-password').value = password;
+        }
+
+        function openPasswordModal(userId, username) {
+            editingUserId = userId;
+            document.getElementById('password-modal-user').textContent = '用户: ' + username;
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-new-password').value = '';
+            document.getElementById('password-error').style.display = 'none';
+            document.getElementById('password-modal').classList.add('active');
+        }
+
+        function closePasswordModal() {
+            document.getElementById('password-modal').classList.remove('active');
+            editingUserId = null;
+        }
+
+        async function updateUserPassword() {
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-new-password').value;
+
+            if (!newPassword || !confirmPassword) {
+                document.getElementById('password-error').textContent = '请填写所有字段';
+                document.getElementById('password-error').style.display = 'block';
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                document.getElementById('password-error').textContent = '两次输入的密码不一致';
+                document.getElementById('password-error').style.display = 'block';
+                return;
+            }
+
+            try {
+                const response = await fetch(API_BASE + '/api/admin/users/' + editingUserId + '/password', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ new_password: newPassword })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    closePasswordModal();
+                    alert('密码已更新');
+                } else {
+                    document.getElementById('password-error').textContent = data.message || '更新失败';
+                    document.getElementById('password-error').style.display = 'block';
+                }
+            } catch (error) {
+                document.getElementById('password-error').textContent = '更新失败: ' + error.message;
+                document.getElementById('password-error').style.display = 'block';
+            }
+        }
+
+        async function clearAllData() {
+            if (!confirm('确定要清理所有任务和可执行资源数据吗？此操作不可恢复！')) return;
+            if (!confirm('再次确认：此操作将删除所有数据！')) return;
+
+            try {
+                const response = await fetch(API_BASE + '/api/admin/cleanup', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('数据已清理');
+                    refreshData();
+                } else {
+                    alert('清理失败: ' + (data.message || '未知错误'));
+                }
+            } catch (error) {
+                alert('清理失败: ' + error.message);
+            }
+        }
+
+        async function clearDatabase() {
+            if (!confirm('确定要清理所有任务数据吗？此操作不可恢复！')) return;
+
+            try {
+                const response = await fetch(API_BASE + '/api/tasks', {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('数据库已清理');
+                    loadTasks();
+                } else {
+                    alert('清理失败: ' + (data.message || '未知错误'));
+                }
+            } catch (error) {
+                alert('清理失败: ' + error.message);
+            }
+        }
+
+        async function deleteTask(id) {
+            if (!confirm('确定要删除这个任务吗？')) return;
+
+            try {
+                const response = await fetch(API_BASE + '/api/tasks/' + id, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    loadTasks();
+                } else {
+                    alert('删除失败: ' + (data.message || '未知错误'));
+                }
+            } catch (error) {
+                alert('删除失败: ' + error.message);
+            }
+        }
+
+        function getStatusIcon(status) {
+            const icons = {
+                pending: '⏳',
+                running: '🔄',
+                passed: '✅',
+                failed: '❌',
+                timeout: '⏱️',
+                cancelled: '🚫',
+                skipped: '⏭️',
+                completed: '✅'
+            };
+            return icons[status] || '❓';
+        }
+
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleString('zh-CN', {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function renderEventsStats(events) {
+            const stats = {
+                total: events.length,
+                push: events.filter(e => e.event_type === 'push').length,
+                pr: events.filter(e => e.event_type === 'pull_request').length
+            };
+
+            document.getElementById('events-stats').innerHTML = 
+                '<div class="stat-card"><div class="stat-label">Total Events</div><div class="stat-value">' + stats.total + '</div></div>' +
+                '<div class="stat-card"><div class="stat-label">Push Events</div><div class="stat-value info">' + stats.push + '</div></div>' +
+                '<div class="stat-card"><div class="stat-label">Pull Requests</div><div class="stat-value warning">' + stats.pr + '</div></div>';
+        }
+
+        function renderEvents(events) {
+            if (!events || events.length === 0) {
+                document.getElementById('events-list').innerHTML = 
+                    '<div class="empty-state"><div class="icon">&#128230;</div><h3>No Events</h3><p>No events found</p></div>';
+                return;
+            }
+
+            renderEventsStats(events);
+
+            let html = '<div style="background: var(--card-bg); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden;">';
+            html += '<table style="width: 100%; border-collapse: collapse;">';
+            html += '<thead><tr style="background: #f8fafc; border-bottom: 2px solid var(--border-color);">';
+            html += '<th style="padding: 14px 16px; text-align: left; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Event ID</th>';
+            html += '<th style="padding: 14px 16px; text-align: left; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Repository</th>';
+            html += '<th style="padding: 14px 16px; text-align: left; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Type</th>';
+            html += '<th style="padding: 14px 16px; text-align: left; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Branch</th>';
+            html += '<th style="padding: 14px 16px; text-align: left; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Author</th>';
+            html += '<th style="padding: 14px 16px; text-align: left; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Status</th>';
+            html += '<th style="padding: 14px 16px; text-align: left; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Time</th>';
+            html += '<th style="padding: 14px 16px; text-align: center; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Actions</th>';
+            html += '</tr></thead><tbody>';
+
+            events.forEach(event => {
+                html += '<tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'white\'">';
+                html += '<td style="padding: 14px 16px; font-weight: 500;">' + event.event_id + '</td>';
+                html += '<td style="padding: 14px 16px;">' + escapeHtml(event.repo_name || 'Unknown Repo') + '</td>';
+                html += '<td style="padding: 14px 16px;"><span class="event-type-badge ' + event.event_type + '">' + event.event_type + '</span></td>';
+                html += '<td style="padding: 14px 16px;">' + escapeHtml(event.branch || '-') + '</td>';
+                html += '<td style="padding: 14px 16px;">' + escapeHtml(event.author || '-') + '</td>';
+                html += '<td style="padding: 14px 16px;"><span class="status-badge ' + (event.status || 'pending') + '">' + getStatusIcon(event.status || 'pending') + ' ' + (event.status || 'pending') + '</span></td>';
+                html += '<td style="padding: 14px 16px; font-size: 13px; color: var(--text-muted);">' + formatDateTime(event.created_at) + '</td>';
+                html += '<td style="padding: 14px 16px; text-align: center;">';
+                html += '<button class="btn btn-info btn-sm" onclick="openTasksModal(' + event.id + ', \'' + escapeHtml(event.repo_name || 'Unknown') + '\')" title="View Tasks">&#128065; View</button>';
+                html += '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            document.getElementById('events-list').innerHTML = html;
+        }
+
+        function openTasksModal(eventId, repoName) {
+            const modal = document.getElementById('tasks-modal');
+            const title = document.getElementById('tasks-modal-title');
+            const subtitle = document.getElementById('tasks-modal-subtitle');
+            const content = document.getElementById('tasks-modal-content');
+
+            title.textContent = 'Tasks - ' + repoName;
+            subtitle.textContent = 'Event ID: ' + eventId;
+            content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+            
+            modal.classList.add('active');
+            
+            loadTasksForModal(eventId);
+        }
+
+        function closeTasksModal() {
+            const modal = document.getElementById('tasks-modal');
+            modal.classList.remove('active');
+        }
+
+        async function loadTasksForModal(eventId) {
+            const content = document.getElementById('tasks-modal-content');
+            try {
+                const response = await fetch(API_BASE + '/api/events/' + eventId + '/tasks');
+                const data = await response.json();
+                
+                if (data.success && data.data && data.data.length > 0) {
+                    let html = '';
+                    data.data.forEach(task => {
+                        html += renderTaskItem(task);
+                    });
+                    content.innerHTML = html;
+                } else {
+                    content.innerHTML = '<div class="empty-state" style="padding: 40px 20px;"><div class="icon">&#128203;</div><h3>No Tasks</h3><p>No tasks found for this event</p></div>';
+                }
+            } catch (error) {
+                content.innerHTML = '<div class="error-message">&#9888; Failed to load tasks: ' + error.message + '</div>';
+            }
+        }
+
+        function renderTaskItem(task) {
+            const isAdmin = currentUser && currentUser.role === 'admin';
+            let html = '<div class="task-item">' +
+                '<div class="task-header">' +
+                '<span class="task-name">' + escapeHtml(task.task_name) + '</span>' +
+                '<div class="task-actions">' +
+                '<span class="status-badge ' + task.status + '">' + getStatusIcon(task.status) + ' ' + task.status + '</span>' +
+                (isAdmin ? '<button class="btn btn-danger btn-sm" onclick="deleteTask(' + task.id + ')">🗑️ 删除</button>' : '') +
+                '</div>' +
+                '</div>' +
+                '<div class="task-details">' +
+                '<div class="task-detail-item"><span class="task-detail-label">Task ID</span><span class="task-detail-value" style="font-size: 11px;">' + (task.task_id ? task.task_id.substring(0, 8) + '...' : '-') + '</span></div>' +
+                '<div class="task-detail-item"><span class="task-detail-label">Stage</span><span class="task-detail-value">' + escapeHtml(task.stage || '-') + '</span></div>' +
+                '<div class="task-detail-item"><span class="task-detail-label">Order</span><span class="task-detail-value">' + task.execute_order + '</span></div>' +
+                '<div class="task-detail-item"><span class="task-detail-label">Start Time</span><span class="task-detail-value">' + formatDateTime(task.start_time) + '</span></div>' +
+                '<div class="task-detail-item"><span class="task-detail-label">End Time</span><span class="task-detail-value">' + formatDateTime(task.end_time) + '</span></div>' +
+                '</div>' +
+                '<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color);">' +
+                '<div class="task-detail-item" style="margin-bottom: 8px;"><span class="task-detail-label">Request URL</span><span class="task-detail-value" style="font-size: 11px; word-break: break-all; color: var(--primary-color);">' + escapeHtml(task.request_url || '-') + '</span></div>' +
+                '<div class="task-detail-item"><span class="task-detail-label">Cancel URL</span><span class="task-detail-value" style="font-size: 11px; word-break: break-all; color: var(--warning-color);">' + escapeHtml(task.cancelled_url || '-') + '</span></div>' +
+                '</div>';
+
+            if (task.error_message) {
+                html += '<div class="error-details">&#9888; ' + escapeHtml(task.error_message) + '</div>';
+            }
+
+            if (task.results && task.results.length > 0) {
+                html += '<div class="task-results"><div class="task-results-title">Results</div>';
+                task.results.forEach(result => {
+                    html += '<div class="result-item">' +
+                        '<span class="result-icon ' + result.result + '">' + getStatusIcon(result.result) + '</span>' +
+                        '<span>' + escapeHtml(result.check_type) + '</span>' +
+                        '<span style="margin-left: auto; color: var(--text-muted);">' + result.result + '</span>' +
+                        '</div>';
+                });
+                html += '</div>';
+            }
+
+            html += '</div>';
+            return html;
+        }
+
+        async function loadEvents() {
+            try {
+                const response = await fetch(API_BASE + '/api/events');
+                const data = await response.json();
+                if (data.success) {
+                    eventsData = data.data || [];
+                    renderEvents(eventsData);
+                } else {
+                    throw new Error(data.message || 'Failed to load events');
+                }
+            } catch (error) {
+                document.getElementById('events-list').innerHTML = 
+                    '<div class="error-message">&#9888; ' + error.message + '</div>';
+            }
+        }
+
+        async function refreshData() {
+            await loadEvents();
+            if (currentUser) {
+                loadResources();
+            }
+        }
+
+        checkAuthStatus();
+        loadEvents();
+        setInterval(loadEvents, 30000);
+    </script>
+</body>
+</html>

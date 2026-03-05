@@ -1,0 +1,21 @@
+# Event Processor 后端 Dockerfile
+# 内网环境方案：使用预编译的二进制文件
+
+FROM acr.aishu.cn/dual-mass-engine-gateway/alpine:3.19
+
+WORKDIR /app
+
+RUN addgroup -g 1000 -S processor && \
+    adduser -u 1000 -S processor -G processor
+
+# 复制预编译的二进制文件
+COPY output/event-processor .
+COPY web ./static
+
+RUN chown -R processor:processor /app
+
+USER processor
+
+EXPOSE 5002
+
+CMD ["sh", "-c", "./event-processor ${DB_DSN:+-db $DB_DSN}"]

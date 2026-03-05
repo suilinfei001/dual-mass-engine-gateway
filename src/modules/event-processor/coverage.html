@@ -1,0 +1,3566 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>server: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github-hub/event-processor/cmd/server/main.go (0.0%)</option>
+				
+				<option value="file1">github-hub/event-processor/internal/api/client.go (0.0%)</option>
+				
+				<option value="file2">github-hub/event-processor/internal/api/server.go (0.0%)</option>
+				
+				<option value="file3">github-hub/event-processor/internal/mock/server.go (79.7%)</option>
+				
+				<option value="file4">github-hub/event-processor/internal/models/task.go (94.4%)</option>
+				
+				<option value="file5">github-hub/event-processor/internal/monitor/monitor.go (35.9%)</option>
+				
+				<option value="file6">github-hub/event-processor/internal/scheduler/creator.go (84.7%)</option>
+				
+				<option value="file7">github-hub/event-processor/internal/scheduler/pr_handler.go (47.5%)</option>
+				
+				<option value="file8">github-hub/event-processor/internal/scheduler/scheduler_db.go (59.7%)</option>
+				
+				<option value="file9">github-hub/event-processor/internal/storage/adapter.go (0.0%)</option>
+				
+				<option value="file10">github-hub/event-processor/internal/storage/mysql.go (0.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "context"
+        "flag"
+        "log"
+        "os"
+        "os/signal"
+        "syscall"
+        "time"
+
+        "github-hub/event-processor/internal/api"
+        "github-hub/event-processor/internal/mock"
+        "github-hub/event-processor/internal/models"
+        "github-hub/event-processor/internal/monitor"
+        "github-hub/event-processor/internal/scheduler"
+        "github-hub/event-processor/internal/storage"
+)
+
+const (
+        EventFetchInterval = 30 * time.Second
+        TaskCheckInterval  = 5 * time.Second
+        MockServerPort     = 8090
+        APIServerPort      = "5002"
+        DefaultDB          = "root:root123456@tcp(localhost:3307)/event_processor?parseTime=true"
+)
+
+func main() <span class="cov0" title="0">{
+        dbDSN := flag.String("db", DefaultDB, "MySQL数据库连接字符串")
+        mockPort := flag.Int("mock-port", MockServerPort, "Mock服务端口")
+        apiPort := flag.String("api-port", APIServerPort, "API服务端口")
+        flag.Parse()
+
+        log.SetFlags(0)
+        log.Println("Starting Event Processor...")
+        log.Printf("Event Receiver API: %s", api.EventReceiverAPI)
+        log.Printf("Fetch interval: %v", EventFetchInterval)
+
+        client := api.NewClient()
+
+        store, err := storage.NewMySQLTaskStorage(*dbDSN)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to connect to database: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer store.Close()
+        log.Println("Database connected successfully")
+
+        mockServer := mock.NewMockServer(*mockPort)
+        go func() </span><span class="cov0" title="0">{
+                log.Printf("Starting Mock server on port %d", *mockPort)
+                if err := mockServer.Start(); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Mock server error: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">sched := scheduler.NewSchedulerWithStorage(client, store)
+
+        mon := monitor.NewMonitor(sched)
+        mon.Start()
+
+        storageAdapter := storage.NewTaskStorageAdapter(store)
+        apiServer := api.NewServer(*apiPort, storageAdapter, client)
+        go func() </span><span class="cov0" title="0">{
+                log.Printf("Starting API server on port %s", *apiPort)
+                if err := apiServer.Start(); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("API server error: %v", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">ctx, stop := setupSignalHandler()
+        defer stop()
+
+        eventFetcher := NewEventFetcher(client, sched)
+        go eventFetcher.Start(ctx)
+
+        go runTaskExecutor(ctx, sched, mon)
+
+        log.Println("Event Processor is running. Press Ctrl+C to stop.")
+
+        &lt;-ctx.Done()
+
+        log.Println("Shutting down...")
+        mon.Stop()
+        mockServer.Stop()</span>
+}
+
+func setupSignalHandler() (context.Context, context.CancelFunc) <span class="cov0" title="0">{
+        ctx, cancel := context.WithCancel(context.Background())
+
+        sigChan := make(chan os.Signal, 1)
+        signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+        go func() </span><span class="cov0" title="0">{
+                &lt;-sigChan
+                log.Println("Received termination signal")
+                cancel()
+        }</span>()
+
+        <span class="cov0" title="0">return ctx, cancel</span>
+}
+
+type EventFetcher struct {
+        client    *api.Client
+        scheduler *scheduler.SchedulerWithStorage
+}
+
+func NewEventFetcher(client *api.Client, sched *scheduler.SchedulerWithStorage) *EventFetcher <span class="cov0" title="0">{
+        return &amp;EventFetcher{
+                client:    client,
+                scheduler: sched,
+        }
+}</span>
+
+func (ef *EventFetcher) Start(ctx context.Context) <span class="cov0" title="0">{
+        ticker := time.NewTicker(EventFetchInterval)
+        defer ticker.Stop()
+
+        ef.fetchAndProcess()
+
+        for </span><span class="cov0" title="0">{
+                select </span>{
+                case &lt;-ctx.Done():<span class="cov0" title="0">
+                        log.Println("Event fetcher stopped")
+                        return</span>
+                case &lt;-ticker.C:<span class="cov0" title="0">
+                        ef.fetchAndProcess()</span>
+                }
+        }
+}
+
+func (ef *EventFetcher) fetchAndProcess() <span class="cov0" title="0">{
+        log.Println("Fetching events...")
+
+        events, err := ef.scheduler.FetchEvents()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to fetch events: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">log.Printf("Fetched %d events", len(events))
+
+        if err := ef.scheduler.ProcessEvents(events); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to process events: %v", err)
+                return
+        }</span>
+}
+
+func runTaskExecutor(ctx context.Context, sched *scheduler.SchedulerWithStorage, mon *monitor.Monitor) <span class="cov0" title="0">{
+        ticker := time.NewTicker(TaskCheckInterval)
+        defer ticker.Stop()
+
+        for </span><span class="cov0" title="0">{
+                select </span>{
+                case &lt;-ctx.Done():<span class="cov0" title="0">
+                        log.Println("Task executor stopped")
+                        return</span>
+                case &lt;-ticker.C:<span class="cov0" title="0">
+                        executeNextTask(sched, mon)</span>
+                }
+        }
+}
+
+func executeNextTask(sched *scheduler.SchedulerWithStorage, mon *monitor.Monitor) <span class="cov0" title="0">{
+        task, _, err := sched.GetNextPendingTask()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to get next task: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if task == nil </span><span class="cov0" title="0">{
+                return
+        }</span>
+
+        <span class="cov0" title="0">log.Printf("Executing task: %s (event_id: %d, order: %d)",
+                task.TaskName, task.EventID, task.ExecuteOrder)
+
+        if err := sched.MarkTaskRunning(task); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to mark task running: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">results, err := monitor.ExecuteTask(task)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Task execution failed: %v", err)
+                sched.FailTask(task, err.Error())
+                return
+        }</span>
+
+        <span class="cov0" title="0">if task.TaskID != "" </span><span class="cov0" title="0">{
+                if err := sched.UpdateTask(task); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to update task TaskID: %v", err)
+                }</span>
+        }
+
+        <span class="cov0" title="0">time.Sleep(4 * time.Second)
+
+        status, queryResults, err := mon.QueryTaskStatus(task)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to check task status: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">switch status </span>{
+        case models.TaskStatusPassed:<span class="cov0" title="0">
+                log.Printf("Task completed successfully: %s", task.TaskName)
+                if queryResults != nil </span><span class="cov0" title="0">{
+                        sched.CompleteTask(task, queryResults)
+                }</span> else<span class="cov0" title="0"> {
+                        sched.CompleteTask(task, results)
+                }</span>
+
+        case models.TaskStatusFailed:<span class="cov0" title="0">
+                log.Printf("Task failed: %s", task.TaskName)
+                sched.FailTask(task, "Task execution failed")</span>
+
+        case models.TaskStatusTimeout:<span class="cov0" title="0">
+                log.Printf("Task timed out: %s", task.TaskName)
+                sched.TimeoutTask(task, "Task execution timed out")</span>
+
+        case models.TaskStatusCancelled:<span class="cov0" title="0">
+                log.Printf("Task cancelled: %s", task.TaskName)
+                sched.CancelTask(task, "Task was cancelled")</span>
+
+        case models.TaskStatusRunning:<span class="cov0" title="0">
+                log.Printf("Task still running: %s (task_id: %s)", task.TaskName, task.TaskID)</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package api
+
+import (
+        "bytes"
+        "encoding/json"
+        "fmt"
+        "io"
+        "net/http"
+        "time"
+)
+
+const (
+        // EventReceiverAPI Event Receiver API 地址
+        EventReceiverAPI = "http://10.4.111.141:5001"
+)
+
+// Client Event Receiver API 客户端
+type Client struct {
+        BaseURL    string
+        HTTPClient *http.Client
+}
+
+// NewClient 创建新的 API 客户端
+func NewClient() *Client <span class="cov0" title="0">{
+        return &amp;Client{
+                BaseURL: EventReceiverAPI,
+                HTTPClient: &amp;http.Client{
+                        Timeout: 30 * time.Second,
+                },
+        }
+}</span>
+
+// Event 事件数据结构（来自 Event Receiver）
+type Event struct {
+        ID          int     `json:"id"`
+        EventID     string  `json:"event_id"`
+        EventType   string  `json:"event_type"`
+        EventStatus string  `json:"event_status"`
+        Repository  string  `json:"repository"`
+        Branch      string  `json:"branch"`
+        CommitSHA   string  `json:"commit_sha"`
+        PRNumber    *int    `json:"pr_number,omitempty"`
+        TargetBranch string `json:"target_branch,omitempty"`
+        Payload     map[string]interface{} `json:"payload"`
+        Pusher      string  `json:"pusher,omitempty"`
+        Author      string  `json:"author,omitempty"`
+        CreatedAt   string  `json:"created_at"`
+        UpdatedAt   string  `json:"updated_at"`
+        ProcessedAt string  `json:"processed_at,omitempty"`
+        QualityChecks []QualityCheck `json:"quality_checks"`
+}
+
+// QualityCheck 质量检查项
+type QualityCheck struct {
+        ID             int     `json:"id"`
+        GitHubEventID string  `json:"github_event_id"`
+        CheckType      string  `json:"check_type"`
+        CheckStatus    string  `json:"check_status"`
+        Stage          string  `json:"stage"`
+        StageOrder     int     `json:"stage_order"`
+        CheckOrder     int     `json:"check_order"`
+        StartedAt      string  `json:"started_at,omitempty"`
+        CompletedAt    string  `json:"completed_at,omitempty"`
+        DurationSeconds *float64 `json:"duration_seconds,omitempty"`
+        ErrorMessage  *string  `json:"error_message,omitempty"`
+        Output         *string  `json:"output,omitempty"`
+        RetryCount     int     `json:"retry_count"`
+        CreatedAt      string  `json:"created_at"`
+        UpdatedAt      string  `json:"updated_at"`
+}
+
+// APIResponse API 响应结构
+type APIResponse struct {
+        Success bool        `json:"success"`
+        Message string      `json:"message,omitempty"`
+        Data    interface{} `json:"data,omitempty"`
+}
+
+// GetEvents 获取所有事件
+func (c *Client) GetEvents() ([]Event, error) <span class="cov0" title="0">{
+        resp, err := c.HTTPClient.Get(c.BaseURL + "/api/events")
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get events: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK </span><span class="cov0" title="0">{
+                body, _ := io.ReadAll(resp.Body)
+                return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+        }</span>
+
+        <span class="cov0" title="0">var apiResp APIResponse
+        if err := json.NewDecoder(resp.Body).Decode(&amp;apiResp); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to decode response: %w", err)
+        }</span>
+
+        // 解析 events 数组
+        <span class="cov0" title="0">var events []Event
+        if dataBytes, err := json.Marshal(apiResp.Data); err == nil </span><span class="cov0" title="0">{
+                json.Unmarshal(dataBytes, &amp;events)
+        }</span>
+
+        <span class="cov0" title="0">return events, nil</span>
+}
+
+// GetEvent 获取单个事件详情
+func (c *Client) GetEvent(id int) (*Event, error) <span class="cov0" title="0">{
+        resp, err := c.HTTPClient.Get(fmt.Sprintf("%s/api/events/%d", c.BaseURL, id))
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get event: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK </span><span class="cov0" title="0">{
+                body, _ := io.ReadAll(resp.Body)
+                return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+        }</span>
+
+        <span class="cov0" title="0">var apiResp APIResponse
+        if err := json.NewDecoder(resp.Body).Decode(&amp;apiResp); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to decode response: %w", err)
+        }</span>
+
+        // 解析 event 对象
+        <span class="cov0" title="0">var event Event
+        if dataBytes, err := json.Marshal(apiResp.Data); err == nil </span><span class="cov0" title="0">{
+                json.Unmarshal(dataBytes, &amp;event)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;event, nil</span>
+}
+
+// UpdateEventStatus 更新事件状态
+func (c *Client) UpdateEventStatus(eventID int, status string, processedAt string) error <span class="cov0" title="0">{
+        payload := map[string]interface{}{
+                "event_status": status,
+        }
+        if processedAt != "" </span><span class="cov0" title="0">{
+                payload["processed_at"] = processedAt
+        }</span>
+
+        <span class="cov0" title="0">return c.putJSON(fmt.Sprintf("/api/events/%d/status", eventID), payload)</span>
+}
+
+// UpdateQualityCheck 更新单个质量检查状态
+func (c *Client) UpdateQualityCheck(checkID int, status string, startedAt, completedAt string, duration float64, errorMessage, output string) error <span class="cov0" title="0">{
+        payload := map[string]interface{}{
+                "check_status": status,
+        }
+        if startedAt != "" </span><span class="cov0" title="0">{
+                payload["started_at"] = startedAt
+        }</span>
+        <span class="cov0" title="0">if completedAt != "" </span><span class="cov0" title="0">{
+                payload["completed_at"] = completedAt
+        }</span>
+        <span class="cov0" title="0">if duration &gt; 0 </span><span class="cov0" title="0">{
+                payload["duration_seconds"] = duration
+        }</span>
+        <span class="cov0" title="0">if errorMessage != "" </span><span class="cov0" title="0">{
+                payload["error_message"] = errorMessage
+        }</span>
+        <span class="cov0" title="0">if output != "" </span><span class="cov0" title="0">{
+                payload["output"] = output
+        }</span>
+
+        <span class="cov0" title="0">return c.putJSON(fmt.Sprintf("/api/quality-checks/%d", checkID), payload)</span>
+}
+
+// BatchUpdateQualityChecks 批量更新质量检查状态
+func (c *Client) BatchUpdateQualityChecks(eventID int, checks []QualityCheckUpdate) error <span class="cov0" title="0">{
+        payload := map[string]interface{}{
+                "quality_checks": checks,
+        }
+
+        return c.putJSON(fmt.Sprintf("/api/events/%d/quality-checks/batch", eventID), payload)
+}</span>
+
+// QualityCheckUpdate 质量检查更新
+type QualityCheckUpdate struct {
+        ID           int     `json:"id"`
+        CheckStatus   string  `json:"check_status,omitempty"`
+        StartedAt     string  `json:"started_at,omitempty"`
+        CompletedAt    string  `json:"completed_at,omitempty"`
+        Duration      float64 `json:"duration_seconds,omitempty"`
+        ErrorMessage  string  `json:"error_message,omitempty"`
+        Output        string  `json:"output,omitempty"`
+}
+
+// putJSON 发送 PUT 请求
+func (c *Client) putJSON(path string, payload interface{}) error <span class="cov0" title="0">{
+        bodyBytes, err := json.Marshal(payload)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to marshal payload: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">req, err := http.NewRequest("PUT", c.BaseURL+path, bytes.NewBuffer(bodyBytes))
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create request: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">req.Header.Set("Content-Type", "application/json")
+
+        resp, err := c.HTTPClient.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to send request: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK </span><span class="cov0" title="0">{
+                body, _ := io.ReadAll(resp.Body)
+                return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package api
+
+import (
+        "encoding/json"
+        "net/http"
+        "strconv"
+        "strings"
+
+        "github.com/gorilla/mux"
+)
+
+type Server struct {
+        Port    string
+        storage Storage
+        client  *Client
+}
+
+type Storage interface {
+        GetAllTasks() ([]TaskResponse, error)
+        GetTaskByID(id int) (*TaskResponse, error)
+        GetTasksByEventID(eventID int) ([]TaskResponse, error)
+        DeleteAllTasks() error
+}
+
+type TaskResponse struct {
+        ID           int                  `json:"id"`
+        TaskID       string               `json:"task_id"`
+        TaskName     string               `json:"task_name"`
+        EventID      int                  `json:"event_id"`
+        Stage        string               `json:"stage"`
+        StageOrder   int                  `json:"stage_order"`
+        ExecuteOrder int                  `json:"execute_order"`
+        Status       string               `json:"status"`
+        StartTime    *string              `json:"start_time,omitempty"`
+        EndTime      *string              `json:"end_time,omitempty"`
+        ErrorMessage string               `json:"error_message,omitempty"`
+        Results      []TaskResultResponse `json:"results,omitempty"`
+        CreatedAt    string               `json:"created_at"`
+        UpdatedAt    string               `json:"updated_at"`
+}
+
+type TaskResultResponse struct {
+        CheckType string                 `json:"check_type"`
+        Result    string                 `json:"result"`
+        Output    string                 `json:"output,omitempty"`
+        Extra     map[string]interface{} `json:"extra,omitempty"`
+}
+
+type EventResponse struct {
+        ID            int                    `json:"id"`
+        EventID       string                 `json:"event_id"`
+        EventType     string                 `json:"event_type"`
+        EventStatus   string                 `json:"event_status"`
+        Repository    string                 `json:"repository"`
+        Branch        string                 `json:"branch"`
+        TargetBranch  string                 `json:"target_branch,omitempty"`
+        Author        string                 `json:"author,omitempty"`
+        Action        string                 `json:"action,omitempty"`
+        Payload       map[string]interface{} `json:"payload"`
+        QualityChecks []QualityCheckResponse `json:"quality_checks"`
+        CreatedAt     string                 `json:"created_at"`
+        UpdatedAt     string                 `json:"updated_at"`
+        ProcessedAt   string                 `json:"processed_at,omitempty"`
+}
+
+type QualityCheckResponse struct {
+        ID              int      `json:"id"`
+        CheckType       string   `json:"check_type"`
+        CheckStatus     string   `json:"check_status"`
+        Stage           string   `json:"stage"`
+        StageOrder      int      `json:"stage_order"`
+        CheckOrder      int      `json:"check_order"`
+        StartedAt       *string  `json:"started_at,omitempty"`
+        CompletedAt     *string  `json:"completed_at,omitempty"`
+        DurationSeconds *float64 `json:"duration_seconds,omitempty"`
+        ErrorMessage    *string  `json:"error_message,omitempty"`
+        Output          *string  `json:"output,omitempty"`
+        RetryCount      int      `json:"retry_count"`
+}
+
+func NewServer(port string, storage Storage, client *Client) *Server <span class="cov0" title="0">{
+        return &amp;Server{
+                Port:    port,
+                storage: storage,
+                client:  client,
+        }
+}</span>
+
+func (s *Server) Start() error <span class="cov0" title="0">{
+        router := mux.NewRouter()
+
+        router.HandleFunc("/api/events", s.handleGetEvents).Methods("GET")
+        router.HandleFunc("/api/events/{id}", s.handleGetEvent).Methods("GET")
+        router.HandleFunc("/api/events/{id}/tasks", s.handleGetEventTasks).Methods("GET")
+        router.HandleFunc("/api/tasks", s.handleGetTasks).Methods("GET")
+        router.HandleFunc("/api/tasks", s.handleDeleteAllTasks).Methods("DELETE")
+        router.HandleFunc("/api/tasks/{id}", s.handleGetTask).Methods("GET")
+        router.HandleFunc("/api/health", s.handleHealth).Methods("GET")
+
+        router.PathPrefix("/").Handler(http.FileServer(http.Dir("/app/static")))
+
+        corsMiddleware := func(next http.Handler) http.Handler </span><span class="cov0" title="0">{
+                return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                        w.Header().Set("Access-Control-Allow-Origin", "*")
+                        w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+                        w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+                        if r.Method == "OPTIONS" </span><span class="cov0" title="0">{
+                                w.WriteHeader(http.StatusOK)
+                                return
+                        }</span>
+
+                        <span class="cov0" title="0">next.ServeHTTP(w, r)</span>
+                })
+        }
+
+        <span class="cov0" title="0">handler := corsMiddleware(router)
+
+        return http.ListenAndServe(":"+s.Port, handler)</span>
+}
+
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}</span>
+
+func (s *Server) handleGetEvents(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        events, err := s.client.GetEvents()
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, err.Error(), http.StatusInternalServerError)
+                return
+        }</span>
+
+        <span class="cov0" title="0">response := make([]EventResponse, len(events))
+        for i, event := range events </span><span class="cov0" title="0">{
+                response[i] = convertEventToResponse(event)
+        }</span>
+
+        <span class="cov0" title="0">w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(map[string]interface{}{
+                "success": true,
+                "data":    response,
+        })</span>
+}
+
+func (s *Server) handleGetEvent(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        vars := mux.Vars(r)
+        id, err := strconv.Atoi(vars["id"])
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "Invalid event ID", http.StatusBadRequest)
+                return
+        }</span>
+
+        <span class="cov0" title="0">event, err := s.client.GetEvent(id)
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, err.Error(), http.StatusInternalServerError)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if event == nil </span><span class="cov0" title="0">{
+                http.Error(w, "Event not found", http.StatusNotFound)
+                return
+        }</span>
+
+        <span class="cov0" title="0">w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(map[string]interface{}{
+                "success": true,
+                "data":    convertEventToResponse(*event),
+        })</span>
+}
+
+func (s *Server) handleGetEventTasks(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        vars := mux.Vars(r)
+        eventID, err := strconv.Atoi(vars["id"])
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "Invalid event ID", http.StatusBadRequest)
+                return
+        }</span>
+
+        <span class="cov0" title="0">tasks, err := s.storage.GetTasksByEventID(eventID)
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, err.Error(), http.StatusInternalServerError)
+                return
+        }</span>
+
+        <span class="cov0" title="0">w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(map[string]interface{}{
+                "success": true,
+                "data":    tasks,
+        })</span>
+}
+
+func (s *Server) handleGetTasks(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        status := r.URL.Query().Get("status")
+
+        tasks, err := s.storage.GetAllTasks()
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, err.Error(), http.StatusInternalServerError)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if status != "" </span><span class="cov0" title="0">{
+                filtered := make([]TaskResponse, 0)
+                for _, task := range tasks </span><span class="cov0" title="0">{
+                        if strings.EqualFold(task.Status, status) </span><span class="cov0" title="0">{
+                                filtered = append(filtered, task)
+                        }</span>
+                }
+                <span class="cov0" title="0">tasks = filtered</span>
+        }
+
+        <span class="cov0" title="0">w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(map[string]interface{}{
+                "success": true,
+                "data":    tasks,
+        })</span>
+}
+
+func (s *Server) handleGetTask(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        vars := mux.Vars(r)
+        id, err := strconv.Atoi(vars["id"])
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "Invalid task ID", http.StatusBadRequest)
+                return
+        }</span>
+
+        <span class="cov0" title="0">task, err := s.storage.GetTaskByID(id)
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, err.Error(), http.StatusInternalServerError)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if task == nil </span><span class="cov0" title="0">{
+                http.Error(w, "Task not found", http.StatusNotFound)
+                return
+        }</span>
+
+        <span class="cov0" title="0">w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(map[string]interface{}{
+                "success": true,
+                "data":    task,
+        })</span>
+}
+
+func convertEventToResponse(event Event) EventResponse <span class="cov0" title="0">{
+        qualityChecks := make([]QualityCheckResponse, len(event.QualityChecks))
+        for i, qc := range event.QualityChecks </span><span class="cov0" title="0">{
+                qualityChecks[i] = QualityCheckResponse{
+                        ID:              qc.ID,
+                        CheckType:       qc.CheckType,
+                        CheckStatus:     qc.CheckStatus,
+                        Stage:           qc.Stage,
+                        StageOrder:      qc.StageOrder,
+                        CheckOrder:      qc.CheckOrder,
+                        DurationSeconds: qc.DurationSeconds,
+                        ErrorMessage:    qc.ErrorMessage,
+                        Output:          qc.Output,
+                        RetryCount:      qc.RetryCount,
+                }
+                if qc.StartedAt != "" </span><span class="cov0" title="0">{
+                        qualityChecks[i].StartedAt = &amp;qc.StartedAt
+                }</span>
+                <span class="cov0" title="0">if qc.CompletedAt != "" </span><span class="cov0" title="0">{
+                        qualityChecks[i].CompletedAt = &amp;qc.CompletedAt
+                }</span>
+        }
+
+        <span class="cov0" title="0">action := ""
+        if a, ok := event.Payload["action"].(string); ok </span><span class="cov0" title="0">{
+                action = a
+        }</span> else<span class="cov0" title="0"> if event.EventType == "push" </span><span class="cov0" title="0">{
+                action = "push"
+        }</span>
+
+        <span class="cov0" title="0">return EventResponse{
+                ID:            event.ID,
+                EventID:       event.EventID,
+                EventType:     event.EventType,
+                EventStatus:   event.EventStatus,
+                Repository:    event.Repository,
+                Branch:        event.Branch,
+                TargetBranch:  event.TargetBranch,
+                Author:        event.Author,
+                Action:        action,
+                Payload:       event.Payload,
+                QualityChecks: qualityChecks,
+                CreatedAt:     event.CreatedAt,
+                UpdatedAt:     event.UpdatedAt,
+                ProcessedAt:   event.ProcessedAt,
+        }</span>
+}
+
+func (s *Server) handleDeleteAllTasks(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        err := s.storage.DeleteAllTasks()
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, err.Error(), http.StatusInternalServerError)
+                return
+        }</span>
+
+        <span class="cov0" title="0">w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(map[string]interface{}{
+                "success": true,
+                "message": "All tasks have been deleted",
+        })</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package mock
+
+import (
+        "encoding/json"
+        "fmt"
+        "log"
+        "net/http"
+        "sync"
+        "time"
+
+        "github.com/google/uuid"
+)
+
+type MockServer struct {
+        port       int
+        server     *http.Server
+        tasks      map[string]*MockTask
+        tasksMu    sync.RWMutex
+        taskTimers map[string]*time.Timer
+        timersMu   sync.Mutex
+}
+
+type MockTask struct {
+        TaskID       string       `json:"task_id"`
+        TaskName     string       `json:"task_name"`
+        RequestURL   string       `json:"request_url"`
+        StartTime    string       `json:"start_time"`
+        EndTime      string       `json:"end_time"`
+        Status       string       `json:"status"`
+        ExecuteOrder int          `json:"execute_order"`
+        ErrorMessage string       `json:"error_message"`
+        Results      []MockResult `json:"results"`
+        EventID      int          `json:"event_id"`
+}
+
+type MockResult struct {
+        CheckType string                 `json:"check_type"`
+        Result    string                 `json:"result"`
+        Extra     map[string]interface{} `json:"extra,omitempty"`
+}
+
+type TaskRequest struct {
+        EventID int `json:"event_id"`
+}
+
+func NewMockServer(port int) *MockServer <span class="cov10" title="14">{
+        return &amp;MockServer{
+                port:       port,
+                tasks:      make(map[string]*MockTask),
+                taskTimers: make(map[string]*time.Timer),
+        }
+}</span>
+
+func (s *MockServer) Start() error <span class="cov0" title="0">{
+        mux := http.NewServeMux()
+
+        mux.HandleFunc("/mock/basic-ci", s.handleBasicCI)
+        mux.HandleFunc("/mock/basic-ci/cancel", s.handleCancel)
+        mux.HandleFunc("/mock/deployment", s.handleDeployment)
+        mux.HandleFunc("/mock/deployment/cancel", s.handleCancel)
+        mux.HandleFunc("/mock/api-test", s.handleAPITest)
+        mux.HandleFunc("/mock/api-test/cancel", s.handleCancel)
+        mux.HandleFunc("/mock/module-e2e", s.handleModuleE2E)
+        mux.HandleFunc("/mock/module-e2e/cancel", s.handleCancel)
+        mux.HandleFunc("/mock/agent-e2e", s.handleAgentE2E)
+        mux.HandleFunc("/mock/agent-e2e/cancel", s.handleCancel)
+        mux.HandleFunc("/mock/ai-e2e", s.handleAIE2E)
+        mux.HandleFunc("/mock/ai-e2e/cancel", s.handleCancel)
+        mux.HandleFunc("/mock/status/", s.handleStatus)
+
+        s.server = &amp;http.Server{
+                Addr:    fmt.Sprintf(":%d", s.port),
+                Handler: mux,
+        }
+
+        log.Printf("Mock server starting on port %d", s.port)
+        return s.server.ListenAndServe()
+}</span>
+
+func (s *MockServer) Stop() error <span class="cov0" title="0">{
+        if s.server != nil </span><span class="cov0" title="0">{
+                return s.server.Close()
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (s *MockServer) handleBasicCI(w http.ResponseWriter, r *http.Request) <span class="cov3" title="2">{
+        eventID := s.getEventID(r)
+        taskID := uuid.New().String()
+
+        task := &amp;MockTask{
+                TaskID:       taskID,
+                TaskName:     "basic_ci_all",
+                RequestURL:   fmt.Sprintf("http://localhost:%d/mock/basic-ci?event_id=%d", s.port, eventID),
+                StartTime:    time.Now().Format(time.RFC3339),
+                Status:       "running",
+                ExecuteOrder: 1,
+                EventID:      eventID,
+        }
+
+        s.tasksMu.Lock()
+        s.tasks[taskID] = task
+        s.tasksMu.Unlock()
+
+        s.scheduleTaskCompletion(taskID, 3*time.Second)
+
+        s.respondJSON(w, task)
+}</span>
+
+func (s *MockServer) handleDeployment(w http.ResponseWriter, r *http.Request) <span class="cov1" title="1">{
+        eventID := s.getEventID(r)
+        taskID := uuid.New().String()
+
+        task := &amp;MockTask{
+                TaskID:       taskID,
+                TaskName:     "deployment_deployment",
+                RequestURL:   fmt.Sprintf("http://localhost:%d/mock/deployment?event_id=%d", s.port, eventID),
+                StartTime:    time.Now().Format(time.RFC3339),
+                Status:       "running",
+                ExecuteOrder: 2,
+                EventID:      eventID,
+        }
+
+        s.tasksMu.Lock()
+        s.tasks[taskID] = task
+        s.tasksMu.Unlock()
+
+        s.scheduleTaskCompletion(taskID, 2*time.Second)
+
+        s.respondJSON(w, task)
+}</span>
+
+func (s *MockServer) handleAPITest(w http.ResponseWriter, r *http.Request) <span class="cov1" title="1">{
+        eventID := s.getEventID(r)
+        taskID := uuid.New().String()
+
+        task := &amp;MockTask{
+                TaskID:       taskID,
+                TaskName:     "specialized_tests_api_test",
+                RequestURL:   fmt.Sprintf("http://localhost:%d/mock/api-test?event_id=%d", s.port, eventID),
+                StartTime:    time.Now().Format(time.RFC3339),
+                Status:       "running",
+                ExecuteOrder: 3,
+                EventID:      eventID,
+        }
+
+        s.tasksMu.Lock()
+        s.tasks[taskID] = task
+        s.tasksMu.Unlock()
+
+        s.scheduleTaskCompletion(taskID, 2*time.Second)
+
+        s.respondJSON(w, task)
+}</span>
+
+func (s *MockServer) handleModuleE2E(w http.ResponseWriter, r *http.Request) <span class="cov1" title="1">{
+        eventID := s.getEventID(r)
+        taskID := uuid.New().String()
+
+        task := &amp;MockTask{
+                TaskID:       taskID,
+                TaskName:     "specialized_tests_module_e2e",
+                RequestURL:   fmt.Sprintf("http://localhost:%d/mock/module-e2e?event_id=%d", s.port, eventID),
+                StartTime:    time.Now().Format(time.RFC3339),
+                Status:       "running",
+                ExecuteOrder: 4,
+                EventID:      eventID,
+        }
+
+        s.tasksMu.Lock()
+        s.tasks[taskID] = task
+        s.tasksMu.Unlock()
+
+        s.scheduleTaskCompletion(taskID, 2*time.Second)
+
+        s.respondJSON(w, task)
+}</span>
+
+func (s *MockServer) handleAgentE2E(w http.ResponseWriter, r *http.Request) <span class="cov1" title="1">{
+        eventID := s.getEventID(r)
+        taskID := uuid.New().String()
+
+        task := &amp;MockTask{
+                TaskID:       taskID,
+                TaskName:     "specialized_tests_agent_e2e",
+                RequestURL:   fmt.Sprintf("http://localhost:%d/mock/agent-e2e?event_id=%d", s.port, eventID),
+                StartTime:    time.Now().Format(time.RFC3339),
+                Status:       "running",
+                ExecuteOrder: 5,
+                EventID:      eventID,
+        }
+
+        s.tasksMu.Lock()
+        s.tasks[taskID] = task
+        s.tasksMu.Unlock()
+
+        s.scheduleTaskCompletion(taskID, 2*time.Second)
+
+        s.respondJSON(w, task)
+}</span>
+
+func (s *MockServer) handleAIE2E(w http.ResponseWriter, r *http.Request) <span class="cov1" title="1">{
+        eventID := s.getEventID(r)
+        taskID := uuid.New().String()
+
+        task := &amp;MockTask{
+                TaskID:       taskID,
+                TaskName:     "specialized_tests_ai_e2e",
+                RequestURL:   fmt.Sprintf("http://localhost:%d/mock/ai-e2e?event_id=%d", s.port, eventID),
+                StartTime:    time.Now().Format(time.RFC3339),
+                Status:       "running",
+                ExecuteOrder: 6,
+                EventID:      eventID,
+        }
+
+        s.tasksMu.Lock()
+        s.tasks[taskID] = task
+        s.tasksMu.Unlock()
+
+        s.scheduleTaskCompletion(taskID, 2*time.Second)
+
+        s.respondJSON(w, task)
+}</span>
+
+func (s *MockServer) handleStatus(w http.ResponseWriter, r *http.Request) <span class="cov3" title="2">{
+        taskID := r.URL.Path[len("/mock/status/"):]
+
+        s.tasksMu.RLock()
+        task, exists := s.tasks[taskID]
+        s.tasksMu.RUnlock()
+
+        if !exists </span><span class="cov1" title="1">{
+                http.Error(w, "Task not found", http.StatusNotFound)
+                return
+        }</span>
+
+        <span class="cov1" title="1">s.respondJSON(w, task)</span>
+}
+
+func (s *MockServer) handleCancel(w http.ResponseWriter, r *http.Request) <span class="cov3" title="2">{
+        taskID := r.URL.Query().Get("task_id")
+        if taskID == "" </span><span class="cov1" title="1">{
+                http.Error(w, "task_id required", http.StatusBadRequest)
+                return
+        }</span>
+
+        <span class="cov1" title="1">s.tasksMu.Lock()
+        task, exists := s.tasks[taskID]
+        if exists &amp;&amp; task.Status == "running" </span><span class="cov1" title="1">{
+                task.Status = "cancelled"
+                task.EndTime = time.Now().Format(time.RFC3339)
+                task.ErrorMessage = "Task cancelled by request"
+        }</span>
+        <span class="cov1" title="1">s.tasksMu.Unlock()
+
+        s.timersMu.Lock()
+        if timer, exists := s.taskTimers[taskID]; exists </span><span class="cov0" title="0">{
+                timer.Stop()
+                delete(s.taskTimers, taskID)
+        }</span>
+        <span class="cov1" title="1">s.timersMu.Unlock()
+
+        if !exists </span><span class="cov0" title="0">{
+                http.Error(w, "Task not found", http.StatusNotFound)
+                return
+        }</span>
+
+        <span class="cov1" title="1">s.respondJSON(w, map[string]string{
+                "status":  "cancelled",
+                "task_id": taskID,
+        })</span>
+}
+
+func (s *MockServer) scheduleTaskCompletion(taskID string, delay time.Duration) <span class="cov7" title="7">{
+        timer := time.AfterFunc(delay, func() </span><span class="cov7" title="7">{
+                s.tasksMu.Lock()
+                task, exists := s.tasks[taskID]
+                if !exists || task.Status != "running" </span><span class="cov0" title="0">{
+                        s.tasksMu.Unlock()
+                        return
+                }</span>
+
+                <span class="cov7" title="7">task.Status = "pass"
+                task.EndTime = time.Now().Format(time.RFC3339)
+                task.Results = s.generateResults(task.TaskName)
+                s.tasksMu.Unlock()
+
+                log.Printf("Mock task %s completed with status: %s", taskID, task.Status)</span>
+        })
+
+        <span class="cov7" title="7">s.timersMu.Lock()
+        s.taskTimers[taskID] = timer
+        s.timersMu.Unlock()</span>
+}
+
+func (s *MockServer) generateResults(taskName string) []MockResult <span class="cov10" title="14">{
+        switch taskName </span>{
+        case "basic_ci_all":<span class="cov4" title="3">
+                return []MockResult{
+                        {CheckType: "compilation", Result: "pass"},
+                        {CheckType: "code_lint", Result: "pass"},
+                        {CheckType: "security_scan", Result: "pass"},
+                        {CheckType: "unit_test", Result: "pass", Extra: map[string]interface{}{"score": 95}},
+                }</span>
+        case "deployment_deployment":<span class="cov3" title="2">
+                return []MockResult{
+                        {CheckType: "deployment", Result: "pass", Extra: map[string]interface{}{
+                                "node_ip":   "192.168.1.100",
+                                "node_port": "22",
+                                "node_user": "deployer",
+                        }},
+                }</span>
+        case "specialized_tests_api_test":<span class="cov3" title="2">
+                return []MockResult{
+                        {CheckType: "api_test", Result: "pass"},
+                }</span>
+        case "specialized_tests_module_e2e":<span class="cov3" title="2">
+                return []MockResult{
+                        {CheckType: "module_e2e", Result: "pass"},
+                }</span>
+        case "specialized_tests_agent_e2e":<span class="cov3" title="2">
+                return []MockResult{
+                        {CheckType: "agent_e2e", Result: "pass"},
+                }</span>
+        case "specialized_tests_ai_e2e":<span class="cov3" title="2">
+                return []MockResult{
+                        {CheckType: "ai_e2e", Result: "pass"},
+                }</span>
+        default:<span class="cov1" title="1">
+                return []MockResult{}</span>
+        }
+}
+
+func (s *MockServer) getEventID(r *http.Request) int <span class="cov8" title="9">{
+        var eventID int
+        fmt.Sscanf(r.URL.Query().Get("event_id"), "%d", &amp;eventID)
+        return eventID
+}</span>
+
+func (s *MockServer) respondJSON(w http.ResponseWriter, data interface{}) <span class="cov8" title="10">{
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(data)
+}</span>
+
+func (s *MockServer) GetTaskStatus(taskID string) (*MockTask, bool) <span class="cov3" title="2">{
+        s.tasksMu.RLock()
+        defer s.tasksMu.RUnlock()
+        task, exists := s.tasks[taskID]
+        return task, exists
+}</span>
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package models
+
+import (
+        "encoding/json"
+        "time"
+
+        "github.com/google/uuid"
+)
+
+// LocalTime 本地时间类型（兼容数据库 NULL）
+type LocalTime struct {
+        Time time.Time
+}
+
+// Scan 实现 database/sql 的 Scanner 接口
+func (lt *LocalTime) Scan(src interface{}) error <span class="cov2" title="2">{
+        if src == nil </span><span class="cov1" title="1">{
+                lt.Time = time.Time{}
+                return nil
+        }</span>
+        <span class="cov1" title="1">switch v := src.(type) </span>{
+        case time.Time:<span class="cov1" title="1">
+                lt.Time = v</span>
+        case []byte:<span class="cov0" title="0">
+                lt.Time, _ = time.Parse(time.RFC3339, string(v))</span>
+        case string:<span class="cov0" title="0">
+                lt.Time, _ = time.Parse(time.RFC3339, v)</span>
+        default:<span class="cov0" title="0">
+                lt.Time = time.Now()</span>
+        }
+        <span class="cov1" title="1">return nil</span>
+}
+
+// MarshalJSON 自定义 JSON 序列化
+func (lt LocalTime) MarshalJSON() ([]byte, error) <span class="cov2" title="2">{
+        if lt.Time.IsZero() </span><span class="cov1" title="1">{
+                return []byte("null"), nil
+        }</span>
+        <span class="cov1" title="1">return lt.Time.MarshalJSON()</span>
+}
+
+// TaskStatus 任务状态
+type TaskStatus string
+
+const (
+        TaskStatusPending   TaskStatus = "pending"
+        TaskStatusRunning   TaskStatus = "running"
+        TaskStatusPassed    TaskStatus = "passed"
+        TaskStatusFailed    TaskStatus = "failed"
+        TaskStatusTimeout   TaskStatus = "timeout"
+        TaskStatusCancelled TaskStatus = "cancelled"
+        TaskStatusSkipped   TaskStatus = "skipped"
+)
+
+// CheckResult 检查结果
+type CheckResult struct {
+        CheckType string      `json:"check_type"`
+        Result    string      `json:"result"` // pass/fail/timeout/cancelled/skipped/running
+        Extra     interface{} `json:"extra"`
+}
+
+// TaskResult 任务结果（单个检查的结果）
+type TaskResult struct {
+        CheckType string                 `json:"check_type"`
+        Result    string                 `json:"result"` // pass/fail/timeout/cancelled/skipped/running
+        Output    string                 `json:"output,omitempty"`
+        Extra     map[string]interface{} `json:"extra,omitempty"`
+}
+
+// Task 任务定义
+type Task struct {
+        ID           int          `json:"id"`
+        TaskID       string       `json:"task_id"`
+        TaskName     string       `json:"task_name"`
+        EventID      int          `json:"event_id"`
+        CheckType    string       `json:"check_type,omitempty"` // 仅用于单一检查的任务
+        Stage        string       `json:"stage"`
+        StageOrder   int          `json:"stage_order"`
+        CheckOrder   int          `json:"check_order,omitempty"`
+        ExecuteOrder int          `json:"execute_order"`
+        RequestURL   string       `json:"request_url"`
+        CancelledURL string       `json:"cancelled_request_url,omitempty"`
+        Status       TaskStatus   `json:"status"`
+        StartTime    *LocalTime   `json:"start_time"`
+        EndTime      *LocalTime   `json:"end_time"`
+        ErrorMessage string       `json:"error_message,omitempty"`
+        Results      []TaskResult `json:"results,omitempty"`
+        CreatedAt    time.Time    `json:"created_at"`
+        UpdatedAt    time.Time    `json:"updated_at"`
+}
+
+// IsCompleted 检查任务是否已完成（成功或失败）
+func (t *Task) IsCompleted() bool <span class="cov6" title="7">{
+        return t.Status == TaskStatusPassed || t.Status == TaskStatusFailed ||
+                t.Status == TaskStatusTimeout || t.Status == TaskStatusCancelled ||
+                t.Status == TaskStatusSkipped
+}</span>
+
+// IsRunning 检查任务是否正在运行
+func (t *Task) IsRunning() bool <span class="cov2" title="2">{
+        return t.Status == TaskStatusRunning
+}</span>
+
+// MarkRunning 标记任务为运行状态
+func (t *Task) MarkRunning() <span class="cov1" title="1">{
+        now := time.Now()
+        t.Status = TaskStatusRunning
+        t.StartTime = &amp;LocalTime{Time: now}
+        t.UpdatedAt = now
+}</span>
+
+// MarkPassed 标记任务为通过
+func (t *Task) MarkPassed(results []TaskResult) <span class="cov1" title="1">{
+        now := time.Now()
+        t.Status = TaskStatusPassed
+        t.EndTime = &amp;LocalTime{Time: now}
+        t.Results = results
+        t.UpdatedAt = now
+}</span>
+
+// MarkFailed 标记任务为失败
+func (t *Task) MarkFailed(reason string) <span class="cov1" title="1">{
+        now := time.Now()
+        t.Status = TaskStatusFailed
+        t.EndTime = &amp;LocalTime{Time: now}
+        t.ErrorMessage = reason
+        t.UpdatedAt = now
+}</span>
+
+// MarkCancelled 标记任务为取消
+func (t *Task) MarkCancelled(reason string) <span class="cov1" title="1">{
+        now := time.Now()
+        t.Status = TaskStatusCancelled
+        t.EndTime = &amp;LocalTime{Time: now}
+        t.ErrorMessage = reason
+        t.UpdatedAt = now
+}</span>
+
+// MarkSkipped 标记任务为跳过
+func (t *Task) MarkSkipped(reason string) <span class="cov1" title="1">{
+        now := time.Now()
+        t.Status = TaskStatusSkipped
+        t.EndTime = &amp;LocalTime{Time: now}
+        t.ErrorMessage = reason
+        t.UpdatedAt = now
+}</span>
+
+// MarkTimeout 标记任务为超时
+func (t *Task) MarkTimeout(reason string) <span class="cov1" title="1">{
+        now := time.Now()
+        t.Status = TaskStatusTimeout
+        t.EndTime = &amp;LocalTime{Time: now}
+        t.ErrorMessage = reason
+        t.UpdatedAt = now
+}</span>
+
+// GenerateTaskID 生成任务唯一ID
+func (t *Task) GenerateTaskID() string <span class="cov3" title="3">{
+        t.TaskID = uuid.New().String()
+        return t.TaskID
+}</span>
+
+// GetResultsJSON 获取结果的JSON字符串
+func (t *Task) GetResultsJSON() string <span class="cov2" title="2">{
+        if len(t.Results) == 0 </span><span class="cov1" title="1">{
+                return ""
+        }</span>
+        <span class="cov1" title="1">data, err := json.Marshal(t.Results)
+        if err != nil </span><span class="cov0" title="0">{
+                return ""
+        }</span>
+        <span class="cov1" title="1">return string(data)</span>
+}
+
+// SetResultsFromJSON 从JSON字符串设置结果
+func (t *Task) SetResultsFromJSON(jsonStr string) error <span class="cov2" title="2">{
+        if jsonStr == "" </span><span class="cov1" title="1">{
+                return nil
+        }</span>
+        <span class="cov1" title="1">return json.Unmarshal([]byte(jsonStr), &amp;t.Results)</span>
+}
+
+// IsSuccessful 检查任务是否成功完成
+func (t *Task) IsSuccessful() bool <span class="cov5" title="5">{
+        return t.Status == TaskStatusPassed || t.Status == TaskStatusSkipped
+}</span>
+
+// NewTask 创建新任务
+func NewTask(eventID int, taskName, checkType, stage string, stageOrder, checkOrder, executeOrder int, requestURL, cancelledURL string) *Task <span class="cov1" title="1">{
+        now := time.Now()
+        task := &amp;Task{
+                EventID:      eventID,
+                TaskName:     taskName,
+                CheckType:    checkType,
+                Stage:        stage,
+                StageOrder:   stageOrder,
+                CheckOrder:   checkOrder,
+                ExecuteOrder: executeOrder,
+                RequestURL:   requestURL,
+                CancelledURL: cancelledURL,
+                Status:       TaskStatusPending,
+                CreatedAt:    now,
+                UpdatedAt:    now,
+        }
+        task.GenerateTaskID()
+        return task
+}</span>
+
+// NewBasicCITask 创建基础 CI 任务（包含多个检查）
+func NewBasicCITask(eventID int, executeOrder int, requestURL, cancelledURL string) *Task <span class="cov1" title="1">{
+        now := time.Now()
+        task := &amp;Task{
+                EventID:      eventID,
+                TaskName:     "basic_ci_all",
+                Stage:        "basic_ci",
+                StageOrder:   1,
+                ExecuteOrder: executeOrder,
+                RequestURL:   requestURL,
+                CancelledURL: cancelledURL,
+                Status:       TaskStatusPending,
+                CreatedAt:    now,
+                UpdatedAt:    now,
+        }
+        task.GenerateTaskID()
+        return task
+}</span>
+
+// TaskDefinition 任务定义（用于创建任务模板）
+type TaskDefinition struct {
+        TaskName     string
+        CheckType    string
+        Stage        string
+        StageOrder   int
+        CheckOrder   int
+        ExecuteOrder int
+        RequestURL   string
+        CancelledURL string
+}
+
+// TaskDefinitions 按执行顺序定义的任务模板
+var TaskDefinitions = []TaskDefinition{
+        {
+                TaskName:     "basic_ci_all",
+                Stage:        "basic_ci",
+                StageOrder:   1,
+                ExecuteOrder: 1,
+        },
+        {
+                TaskName:     "deployment_deployment",
+                CheckType:    "deployment",
+                Stage:        "deployment",
+                StageOrder:   2,
+                CheckOrder:   1,
+                ExecuteOrder: 2,
+        },
+        {
+                TaskName:     "specialized_tests_api_test",
+                CheckType:    "api_test",
+                Stage:        "specialized_tests",
+                StageOrder:   3,
+                CheckOrder:   1,
+                ExecuteOrder: 3,
+        },
+        {
+                TaskName:     "specialized_tests_module_e2e",
+                CheckType:    "module_e2e",
+                Stage:        "specialized_tests",
+                StageOrder:   3,
+                CheckOrder:   2,
+                ExecuteOrder: 4,
+        },
+        {
+                TaskName:     "specialized_tests_agent_e2e",
+                CheckType:    "agent_e2e",
+                Stage:        "specialized_tests",
+                StageOrder:   3,
+                CheckOrder:   3,
+                ExecuteOrder: 5,
+        },
+        {
+                TaskName:     "specialized_tests_ai_e2e",
+                CheckType:    "ai_e2e",
+                Stage:        "specialized_tests",
+                StageOrder:   3,
+                CheckOrder:   4,
+                ExecuteOrder: 6,
+        },
+}
+
+// GetNextExecuteOrder 获取下一个执行顺序
+func GetNextExecuteOrder(currentOrder int) int <span class="cov6" title="7">{
+        for _, def := range TaskDefinitions </span><span class="cov10" title="32">{
+                if def.ExecuteOrder &gt; currentOrder </span><span class="cov5" title="5">{
+                        return def.ExecuteOrder
+                }</span>
+        }
+        <span class="cov2" title="2">return -1</span>
+}
+
+// GetTaskDefinitionByOrder 根据执行顺序获取任务定义
+func GetTaskDefinitionByOrder(order int) *TaskDefinition <span class="cov3" title="3">{
+        for i := range TaskDefinitions </span><span class="cov7" title="13">{
+                if TaskDefinitions[i].ExecuteOrder == order </span><span class="cov2" title="2">{
+                        return &amp;TaskDefinitions[i]
+                }</span>
+        }
+        <span class="cov1" title="1">return nil</span>
+}
+
+// MaxExecuteOrder 最大执行顺序
+const MaxExecuteOrder = 6
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package monitor
+
+import (
+        "bytes"
+        "context"
+        "encoding/json"
+        "fmt"
+        "log"
+        "net/http"
+        "time"
+
+        "github-hub/event-processor/internal/models"
+)
+
+const (
+        TaskTimeout = 10 * time.Minute
+)
+
+type Scheduler interface {
+        GetRunningTasks() ([]*models.Task, error)
+        CompleteTask(task *models.Task, results []models.TaskResult) error
+        FailTask(task *models.Task, reason string) error
+        TimeoutTask(task *models.Task, reason string) error
+        CancelTask(task *models.Task, reason string) error
+}
+
+type Monitor struct {
+        scheduler Scheduler
+        ctx       context.Context
+        cancel    context.CancelFunc
+        client    *http.Client
+}
+
+func NewMonitor(scheduler Scheduler) *Monitor <span class="cov7" title="5">{
+        ctx, cancel := context.WithCancel(context.Background())
+        return &amp;Monitor{
+                scheduler: scheduler,
+                ctx:       ctx,
+                cancel:    cancel,
+                client: &amp;http.Client{
+                        Timeout: 10 * time.Second,
+                },
+        }
+}</span>
+
+func (m *Monitor) Start() <span class="cov1" title="1">{
+        log.Println("Starting task monitor...")
+
+        go m.monitorRunningTasks()
+}</span>
+
+func (m *Monitor) Stop() <span class="cov1" title="1">{
+        log.Println("Stopping task monitor...")
+        m.cancel()
+}</span>
+
+func (m *Monitor) monitorRunningTasks() <span class="cov1" title="1">{
+        ticker := time.NewTicker(60 * time.Second)
+        defer ticker.Stop()
+
+        for </span><span class="cov1" title="1">{
+                select </span>{
+                case &lt;-m.ctx.Done():<span class="cov1" title="1">
+                        log.Println("Task monitor stopped")
+                        return</span>
+                case &lt;-ticker.C:<span class="cov0" title="0">
+                        m.checkRunningTasks()</span>
+                }
+        }
+}
+
+func (m *Monitor) checkRunningTasks() <span class="cov1" title="1">{
+        tasks, err := m.scheduler.GetRunningTasks()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to get running tasks: %v", err)
+                return
+        }</span>
+
+        <span class="cov1" title="1">for _, task := range tasks </span><span class="cov3" title="2">{
+                m.checkTaskStatus(task)
+        }</span>
+}
+
+func (m *Monitor) checkTaskStatus(task *models.Task) <span class="cov6" title="4">{
+        if task.StartTime == nil </span><span class="cov0" title="0">{
+                return
+        }</span>
+
+        <span class="cov6" title="4">if time.Since(task.StartTime.Time) &gt; TaskTimeout </span><span class="cov3" title="2">{
+                log.Printf("Task %s (event_id: %d) timed out", task.TaskName, task.EventID)
+                if err := m.scheduler.TimeoutTask(task, "Task execution timed out"); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to mark task as timeout: %v", err)
+                }</span>
+                <span class="cov3" title="2">return</span>
+        }
+
+        <span class="cov3" title="2">status, results, err := m.QueryTaskStatus(task)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to query task status: %v", err)
+                return
+        }</span>
+
+        <span class="cov3" title="2">switch status </span>{
+        case models.TaskStatusPassed:<span class="cov0" title="0">
+                log.Printf("Task %s completed successfully", task.TaskName)
+                if err := m.scheduler.CompleteTask(task, results); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to complete task: %v", err)
+                }</span>
+        case models.TaskStatusFailed:<span class="cov0" title="0">
+                log.Printf("Task %s failed", task.TaskName)
+                if err := m.scheduler.FailTask(task, "Task execution failed"); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to fail task: %v", err)
+                }</span>
+        case models.TaskStatusCancelled:<span class="cov0" title="0">
+                log.Printf("Task %s cancelled", task.TaskName)
+                if err := m.scheduler.CancelTask(task, "Task was cancelled"); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to cancel task: %v", err)
+                }</span>
+        case models.TaskStatusRunning:<span class="cov3" title="2">
+                log.Printf("Task %s still running", task.TaskName)</span>
+        default:<span class="cov0" title="0">
+                log.Printf("Task %s has unknown status: %s", task.TaskName, status)</span>
+        }
+}
+
+func (m *Monitor) QueryTaskStatus(task *models.Task) (models.TaskStatus, []models.TaskResult, error) <span class="cov3" title="2">{
+        if task.RequestURL == "" </span><span class="cov3" title="2">{
+                return models.TaskStatusRunning, nil, nil
+        }</span>
+
+        <span class="cov0" title="0">statusURL := fmt.Sprintf("http://localhost:8090/mock/status/%s", task.TaskID)
+
+        resp, err := m.client.Get(statusURL)
+        if err != nil </span><span class="cov0" title="0">{
+                return models.TaskStatusRunning, nil, fmt.Errorf("failed to query status: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer resp.Body.Close()
+
+        if resp.StatusCode == http.StatusNotFound </span><span class="cov0" title="0">{
+                return models.TaskStatusRunning, nil, nil
+        }</span>
+
+        <span class="cov0" title="0">var mockTask struct {
+                TaskID  string       `json:"task_id"`
+                Status  string       `json:"status"`
+                Results []MockResult `json:"results"`
+        }
+
+        if err := json.NewDecoder(resp.Body).Decode(&amp;mockTask); err != nil </span><span class="cov0" title="0">{
+                return models.TaskStatusRunning, nil, fmt.Errorf("failed to decode response: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">var results []models.TaskResult
+        for _, r := range mockTask.Results </span><span class="cov0" title="0">{
+                results = append(results, models.TaskResult{
+                        CheckType: r.CheckType,
+                        Result:    r.Result,
+                        Extra:     r.Extra,
+                })
+        }</span>
+
+        <span class="cov0" title="0">switch mockTask.Status </span>{
+        case "pass":<span class="cov0" title="0">
+                return models.TaskStatusPassed, results, nil</span>
+        case "fail":<span class="cov0" title="0">
+                return models.TaskStatusFailed, results, nil</span>
+        case "cancelled":<span class="cov0" title="0">
+                return models.TaskStatusCancelled, results, nil</span>
+        case "running":<span class="cov0" title="0">
+                return models.TaskStatusRunning, nil, nil</span>
+        default:<span class="cov0" title="0">
+                return models.TaskStatusRunning, nil, nil</span>
+        }
+}
+
+type MockResult struct {
+        CheckType string                 `json:"check_type"`
+        Result    string                 `json:"result"`
+        Extra     map[string]interface{} `json:"extra,omitempty"`
+}
+
+func ExecuteTask(task *models.Task) ([]models.TaskResult, error) <span class="cov0" title="0">{
+        log.Printf("Executing task: %s (event_id: %d)", task.TaskName, task.EventID)
+
+        if task.RequestURL == "" </span><span class="cov0" title="0">{
+                return MockExecuteTask(task)
+        }</span>
+
+        <span class="cov0" title="0">client := &amp;http.Client{
+                Timeout: 30 * time.Second,
+        }
+
+        resp, err := client.Get(task.RequestURL)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to execute task: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer resp.Body.Close()
+
+        var mockTask struct {
+                TaskID  string       `json:"task_id"`
+                Status  string       `json:"status"`
+                Results []MockResult `json:"results"`
+        }
+
+        if err := json.NewDecoder(resp.Body).Decode(&amp;mockTask); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to decode response: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">task.TaskID = mockTask.TaskID
+
+        var results []models.TaskResult
+        for _, r := range mockTask.Results </span><span class="cov0" title="0">{
+                results = append(results, models.TaskResult{
+                        CheckType: r.CheckType,
+                        Result:    r.Result,
+                        Extra:     r.Extra,
+                })
+        }</span>
+
+        <span class="cov0" title="0">return results, nil</span>
+}
+
+func CancelTask(task *models.Task) error <span class="cov0" title="0">{
+        if task.CancelledURL == "" </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">client := &amp;http.Client{
+                Timeout: 10 * time.Second,
+        }
+
+        req, err := http.NewRequest("POST", task.CancelledURL, bytes.NewBuffer([]byte{}))
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create cancel request: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">resp, err := client.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to cancel task: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK </span><span class="cov0" title="0">{
+                return fmt.Errorf("cancel request failed with status: %d", resp.StatusCode)
+        }</span>
+
+        <span class="cov0" title="0">log.Printf("Task %s cancelled successfully", task.TaskName)
+        return nil</span>
+}
+
+func MockExecuteTask(task *models.Task) ([]models.TaskResult, error) <span class="cov10" title="9">{
+        log.Printf("Mock executing task: %s (event_id: %d)", task.TaskName, task.EventID)
+
+        time.Sleep(2 * time.Second)
+
+        switch task.TaskName </span>{
+        case "basic_ci_all":<span class="cov3" title="2">
+                return []models.TaskResult{
+                        {CheckType: "compilation", Result: "pass"},
+                        {CheckType: "code_lint", Result: "pass"},
+                        {CheckType: "security_scan", Result: "pass"},
+                        {CheckType: "unit_test", Result: "pass", Extra: map[string]interface{}{"score": 95}},
+                }, nil</span>
+        case "deployment_deployment":<span class="cov3" title="2">
+                return []models.TaskResult{
+                        {CheckType: "deployment", Result: "pass", Extra: map[string]interface{}{
+                                "node_ip":   "192.168.1.100",
+                                "node_port": "22",
+                                "node_user": "deployer",
+                        }},
+                }, nil</span>
+        case "specialized_tests_api_test":<span class="cov1" title="1">
+                return []models.TaskResult{
+                        {CheckType: "api_test", Result: "pass"},
+                }, nil</span>
+        case "specialized_tests_module_e2e":<span class="cov1" title="1">
+                return []models.TaskResult{
+                        {CheckType: "module_e2e", Result: "pass"},
+                }, nil</span>
+        case "specialized_tests_agent_e2e":<span class="cov1" title="1">
+                return []models.TaskResult{
+                        {CheckType: "agent_e2e", Result: "pass"},
+                }, nil</span>
+        case "specialized_tests_ai_e2e":<span class="cov1" title="1">
+                return []models.TaskResult{
+                        {CheckType: "ai_e2e", Result: "pass"},
+                }, nil</span>
+        default:<span class="cov1" title="1">
+                return nil, fmt.Errorf("unknown task type: %s", task.TaskName)</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package scheduler
+
+import (
+        "fmt"
+        "log"
+
+        "github-hub/event-processor/internal/api"
+        "github-hub/event-processor/internal/models"
+        "github-hub/event-processor/internal/storage"
+)
+
+const (
+        MockBaseURL = "http://localhost:8090/mock"
+)
+
+type TaskCreator struct {
+        client  *api.Client
+        storage storage.TaskStorage
+}
+
+func NewTaskCreator(client *api.Client, store storage.TaskStorage) *TaskCreator <span class="cov10" title="36">{
+        return &amp;TaskCreator{
+                client:  client,
+                storage: store,
+        }
+}</span>
+
+func (tc *TaskCreator) CreateFirstTask(event *api.Event) (*models.Task, error) <span class="cov5" title="7">{
+        def := models.GetTaskDefinitionByOrder(1)
+        if def == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get task definition for order 1")
+        }</span>
+
+        <span class="cov5" title="7">requestURL, cancelledURL := tc.getMockURLs(def.TaskName, event.ID)
+
+        task := models.NewBasicCITask(event.ID, def.ExecuteOrder, requestURL, cancelledURL)
+
+        return task, nil</span>
+}
+
+func (tc *TaskCreator) CreateNextTask(eventID int, currentExecuteOrder int) (*models.Task, error) <span class="cov7" title="11">{
+        nextOrder := models.GetNextExecuteOrder(currentExecuteOrder)
+        if nextOrder == -1 </span><span class="cov1" title="1">{
+                return nil, nil
+        }</span>
+
+        <span class="cov6" title="10">def := models.GetTaskDefinitionByOrder(nextOrder)
+        if def == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get task definition for order %d", nextOrder)
+        }</span>
+
+        <span class="cov6" title="10">requestURL, cancelledURL := tc.getMockURLs(def.TaskName, eventID)
+
+        var task *models.Task
+        if def.TaskName == "basic_ci_all" </span><span class="cov0" title="0">{
+                task = models.NewBasicCITask(eventID, def.ExecuteOrder, requestURL, cancelledURL)
+        }</span> else<span class="cov6" title="10"> {
+                task = models.NewTask(
+                        eventID,
+                        def.TaskName,
+                        def.CheckType,
+                        def.Stage,
+                        def.StageOrder,
+                        def.CheckOrder,
+                        def.ExecuteOrder,
+                        requestURL,
+                        cancelledURL,
+                )
+        }</span>
+
+        <span class="cov6" title="10">return task, nil</span>
+}
+
+func (tc *TaskCreator) CreateTaskForEvent(event *api.Event, executeOrder int) (*models.Task, error) <span class="cov5" title="6">{
+        def := models.GetTaskDefinitionByOrder(executeOrder)
+        if def == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get task definition for order %d", executeOrder)
+        }</span>
+
+        <span class="cov5" title="6">requestURL, cancelledURL := tc.getMockURLs(def.TaskName, event.ID)
+
+        var task *models.Task
+        if def.TaskName == "basic_ci_all" </span><span class="cov1" title="1">{
+                task = models.NewBasicCITask(event.ID, def.ExecuteOrder, requestURL, cancelledURL)
+        }</span> else<span class="cov5" title="5"> {
+                task = models.NewTask(
+                        event.ID,
+                        def.TaskName,
+                        def.CheckType,
+                        def.Stage,
+                        def.StageOrder,
+                        def.CheckOrder,
+                        def.ExecuteOrder,
+                        requestURL,
+                        cancelledURL,
+                )
+        }</span>
+
+        <span class="cov5" title="6">return task, nil</span>
+}
+
+func (tc *TaskCreator) getMockURLs(taskName string, eventID int) (string, string) <span class="cov9" title="29">{
+        var requestPath, cancelPath string
+
+        switch taskName </span>{
+        case "basic_ci_all":<span class="cov6" title="9">
+                requestPath = fmt.Sprintf("%s/basic-ci?event_id=%d", MockBaseURL, eventID)
+                cancelPath = fmt.Sprintf("%s/basic-ci/cancel?event_id=%d", MockBaseURL, eventID)</span>
+        case "deployment_deployment":<span class="cov5" title="7">
+                requestPath = fmt.Sprintf("%s/deployment?event_id=%d", MockBaseURL, eventID)
+                cancelPath = fmt.Sprintf("%s/deployment/cancel?event_id=%d", MockBaseURL, eventID)</span>
+        case "specialized_tests_api_test":<span class="cov4" title="4">
+                requestPath = fmt.Sprintf("%s/api-test?event_id=%d", MockBaseURL, eventID)
+                cancelPath = fmt.Sprintf("%s/api-test/cancel?event_id=%d", MockBaseURL, eventID)</span>
+        case "specialized_tests_module_e2e":<span class="cov3" title="3">
+                requestPath = fmt.Sprintf("%s/module-e2e?event_id=%d", MockBaseURL, eventID)
+                cancelPath = fmt.Sprintf("%s/module-e2e/cancel?event_id=%d", MockBaseURL, eventID)</span>
+        case "specialized_tests_agent_e2e":<span class="cov3" title="3">
+                requestPath = fmt.Sprintf("%s/agent-e2e?event_id=%d", MockBaseURL, eventID)
+                cancelPath = fmt.Sprintf("%s/agent-e2e/cancel?event_id=%d", MockBaseURL, eventID)</span>
+        case "specialized_tests_ai_e2e":<span class="cov3" title="3">
+                requestPath = fmt.Sprintf("%s/ai-e2e?event_id=%d", MockBaseURL, eventID)
+                cancelPath = fmt.Sprintf("%s/ai-e2e/cancel?event_id=%d", MockBaseURL, eventID)</span>
+        default:<span class="cov0" title="0">
+                requestPath = fmt.Sprintf("%s/unknown?event_id=%d", MockBaseURL, eventID)
+                cancelPath = fmt.Sprintf("%s/unknown/cancel?event_id=%d", MockBaseURL, eventID)</span>
+        }
+
+        <span class="cov9" title="29">return requestPath, cancelPath</span>
+}
+
+func (tc *TaskCreator) ShouldCreateNextTask(eventID int, currentTask *models.Task) bool <span class="cov5" title="6">{
+        if !currentTask.IsSuccessful() </span><span class="cov1" title="1">{
+                return false
+        }</span>
+
+        <span class="cov5" title="5">nextOrder := models.GetNextExecuteOrder(currentTask.ExecuteOrder)
+        if nextOrder == -1 </span><span class="cov1" title="1">{
+                return false
+        }</span>
+
+        <span class="cov4" title="4">existingTasks, err := tc.storage.GetTasksByEventID(eventID)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to get existing tasks for event %d: %v", eventID, err)
+                return false
+        }</span>
+
+        <span class="cov4" title="4">for _, t := range existingTasks </span><span class="cov4" title="4">{
+                if t.ExecuteOrder == nextOrder </span><span class="cov0" title="0">{
+                        return false
+                }</span>
+        }
+
+        <span class="cov4" title="4">return true</span>
+}
+
+func (tc *TaskCreator) IsLastTask(executeOrder int) bool <span class="cov5" title="7">{
+        return executeOrder &gt;= models.MaxExecuteOrder
+}</span>
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package scheduler
+
+import (
+        "log"
+        "time"
+
+        "github-hub/event-processor/internal/api"
+        "github-hub/event-processor/internal/models"
+)
+
+type PRHandler struct {
+        client    *api.Client
+        creator   *TaskCreator
+        scheduler *SchedulerWithStorage
+}
+
+func NewPRHandler(client *api.Client, creator *TaskCreator, scheduler *SchedulerWithStorage) *PRHandler <span class="cov9" title="8">{
+        return &amp;PRHandler{
+                client:    client,
+                creator:   creator,
+                scheduler: scheduler,
+        }
+}</span>
+
+func (h *PRHandler) HandlePREvent(event *api.Event) error <span class="cov3" title="2">{
+        prAction := h.getPRAction(event)
+        if prAction == "" </span><span class="cov1" title="1">{
+                log.Printf("Event %d is not a PR event or has no action", event.ID)
+                return nil
+        }</span>
+
+        <span class="cov1" title="1">switch prAction </span>{
+        case "opened":<span class="cov1" title="1">
+                return h.handlePROpened(event)</span>
+        case "synchronize":<span class="cov0" title="0">
+                return h.handlePRSynchronize(event)</span>
+        default:<span class="cov0" title="0">
+                log.Printf("PR action %s not handled for event %d", prAction, event.ID)
+                return nil</span>
+        }
+}
+
+func (h *PRHandler) getPRAction(event *api.Event) string <span class="cov8" title="6">{
+        if event.EventType != "pull_request" </span><span class="cov3" title="2">{
+                return ""
+        }</span>
+
+        <span class="cov6" title="4">if action, ok := event.Payload["action"].(string); ok </span><span class="cov5" title="3">{
+                return action
+        }</span>
+
+        <span class="cov1" title="1">return ""</span>
+}
+
+func (h *PRHandler) getPRURL(event *api.Event) string <span class="cov3" title="2">{
+        if prURL, ok := event.Payload["pr_url"].(string); ok </span><span class="cov1" title="1">{
+                return prURL
+        }</span>
+        <span class="cov1" title="1">return ""</span>
+}
+
+func (h *PRHandler) handlePROpened(event *api.Event) error <span class="cov3" title="2">{
+        log.Printf("Handling PR opened event %d", event.ID)
+
+        existingTasks, err := h.scheduler.GetTasksByEventID(event.ID)
+        if err == nil &amp;&amp; len(existingTasks) &gt; 0 </span><span class="cov0" title="0">{
+                log.Printf("Tasks already exist for PR event %d, skipping", event.ID)
+                return nil
+        }</span>
+
+        <span class="cov3" title="2">task, err := h.creator.CreateFirstTask(event)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov3" title="2">return h.scheduler.storage.CreateTask(task)</span>
+}
+
+func (h *PRHandler) handlePRSynchronize(event *api.Event) error <span class="cov0" title="0">{
+        log.Printf("Handling PR synchronize event %d", event.ID)
+
+        prURL := h.getPRURL(event)
+        if prURL == "" </span><span class="cov0" title="0">{
+                log.Printf("No pr_url found for PR event %d", event.ID)
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">events, err := h.client.GetEvents()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">var relatedEvents []*api.Event
+        for i := range events </span><span class="cov0" title="0">{
+                e := &amp;events[i]
+                if e.EventType == "pull_request" </span><span class="cov0" title="0">{
+                        ePRURL := h.getPRURL(e)
+                        if ePRURL == prURL </span><span class="cov0" title="0">{
+                                relatedEvents = append(relatedEvents, e)
+                        }</span>
+                }
+        }
+
+        <span class="cov0" title="0">targetEvent, eventsToCancel, eventsToComplete := h.filterEvents(relatedEvents, event)
+
+        for _, e := range eventsToComplete </span><span class="cov0" title="0">{
+                if err := h.completeEvent(e); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to complete event %d: %v", e.ID, err)
+                }</span>
+        }
+
+        <span class="cov0" title="0">for _, e := range eventsToCancel </span><span class="cov0" title="0">{
+                if err := h.cancelEvent(e); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to cancel event %d: %v", e.ID, err)
+                }</span>
+        }
+
+        <span class="cov0" title="0">if targetEvent != nil &amp;&amp; targetEvent.ID == event.ID </span><span class="cov0" title="0">{
+                if event.EventStatus == "pending" </span><span class="cov0" title="0">{
+                        existingTasks, err := h.scheduler.GetTasksByEventID(event.ID)
+                        if err != nil || len(existingTasks) == 0 </span><span class="cov0" title="0">{
+                                task, err := h.creator.CreateFirstTask(event)
+                                if err != nil </span><span class="cov0" title="0">{
+                                        return err
+                                }</span>
+                                <span class="cov0" title="0">return h.scheduler.storage.CreateTask(task)</span>
+                        }
+                }
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (h *PRHandler) filterEvents(relatedEvents []*api.Event, currentEvent *api.Event) (*api.Event, []*api.Event, []*api.Event) <span class="cov7" title="5">{
+        var pendingEvents []*api.Event
+        var processingEvents []*api.Event
+        var eventsToComplete []*api.Event
+        var eventsToCancel []*api.Event
+
+        for _, e := range relatedEvents </span><span class="cov10" title="10">{
+                switch e.EventStatus </span>{
+                case "completed", "failed", "cancelled":<span class="cov3" title="2">
+                        continue</span>
+                case "pending":<span class="cov7" title="5">
+                        pendingEvents = append(pendingEvents, e)</span>
+                case "processing":<span class="cov5" title="3">
+                        processingEvents = append(processingEvents, e)</span>
+                }
+        }
+
+        <span class="cov7" title="5">var targetEvent *api.Event
+
+        if len(processingEvents) == 1 &amp;&amp; len(pendingEvents) == 0 </span><span class="cov1" title="1">{
+                targetEvent = processingEvents[0]
+        }</span> else<span class="cov6" title="4"> if len(processingEvents) &gt; 0 </span><span class="cov3" title="2">{
+                latestProcessing := processingEvents[0]
+                for _, e := range processingEvents </span><span class="cov3" title="2">{
+                        if e.CreatedAt &gt; latestProcessing.CreatedAt </span><span class="cov0" title="0">{
+                                latestProcessing = e
+                        }</span>
+                }
+
+                <span class="cov3" title="2">if len(pendingEvents) &gt; 0 </span><span class="cov3" title="2">{
+                        latestPending := pendingEvents[0]
+                        for _, e := range pendingEvents </span><span class="cov3" title="2">{
+                                if e.CreatedAt &gt; latestPending.CreatedAt </span><span class="cov0" title="0">{
+                                        latestPending = e
+                                }</span>
+                        }
+
+                        <span class="cov3" title="2">if latestPending.CreatedAt &gt; latestProcessing.CreatedAt </span><span class="cov3" title="2">{
+                                targetEvent = latestPending
+                                for _, e := range processingEvents </span><span class="cov3" title="2">{
+                                        eventsToCancel = append(eventsToCancel, e)
+                                }</span>
+                                <span class="cov3" title="2">for _, e := range pendingEvents </span><span class="cov3" title="2">{
+                                        if e.ID != targetEvent.ID </span><span class="cov0" title="0">{
+                                                eventsToComplete = append(eventsToComplete, e)
+                                        }</span>
+                                }
+                        } else<span class="cov0" title="0"> {
+                                targetEvent = latestProcessing
+                                for _, e := range pendingEvents </span><span class="cov0" title="0">{
+                                        eventsToComplete = append(eventsToComplete, e)
+                                }</span>
+                                <span class="cov0" title="0">for _, e := range processingEvents </span><span class="cov0" title="0">{
+                                        if e.ID != targetEvent.ID </span><span class="cov0" title="0">{
+                                                eventsToCancel = append(eventsToCancel, e)
+                                        }</span>
+                                }
+                        }
+                } else<span class="cov0" title="0"> {
+                        targetEvent = latestProcessing
+                        for _, e := range processingEvents </span><span class="cov0" title="0">{
+                                if e.ID != targetEvent.ID </span><span class="cov0" title="0">{
+                                        eventsToCancel = append(eventsToCancel, e)
+                                }</span>
+                        }
+                }
+        } else<span class="cov3" title="2"> if len(pendingEvents) &gt; 0 </span><span class="cov3" title="2">{
+                latestPending := pendingEvents[0]
+                for _, e := range pendingEvents </span><span class="cov5" title="3">{
+                        if e.CreatedAt &gt; latestPending.CreatedAt </span><span class="cov1" title="1">{
+                                latestPending = e
+                        }</span>
+                }
+                <span class="cov3" title="2">targetEvent = latestPending
+                for _, e := range pendingEvents </span><span class="cov5" title="3">{
+                        if e.ID != targetEvent.ID </span><span class="cov1" title="1">{
+                                eventsToComplete = append(eventsToComplete, e)
+                        }</span>
+                }
+        }
+
+        <span class="cov7" title="5">return targetEvent, eventsToCancel, eventsToComplete</span>
+}
+
+func (h *PRHandler) completeEvent(event *api.Event) error <span class="cov0" title="0">{
+        now := time.Now()
+        return h.client.UpdateEventStatus(event.ID, "completed", now.Format(time.RFC3339))
+}</span>
+
+func (h *PRHandler) cancelEvent(event *api.Event) error <span class="cov0" title="0">{
+        runningTasks, err := h.scheduler.storage.GetTasksByEventID(event.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">for _, task := range runningTasks </span><span class="cov0" title="0">{
+                if task.Status == models.TaskStatusRunning </span><span class="cov0" title="0">{
+                        if task.CancelledURL != "" </span><span class="cov0" title="0">{
+                                go h.callCancelledURL(task.CancelledURL)
+                        }</span>
+
+                        <span class="cov0" title="0">if err := h.scheduler.CancelTask(task, "PR synchronized with newer commit"); err != nil </span><span class="cov0" title="0">{
+                                log.Printf("Failed to cancel task %d: %v", task.ID, err)
+                        }</span>
+                }
+        }
+
+        <span class="cov0" title="0">now := time.Now()
+        return h.client.UpdateEventStatus(event.ID, "cancelled", now.Format(time.RFC3339))</span>
+}
+
+func (h *PRHandler) callCancelledURL(url string) <span class="cov0" title="0">{
+        log.Printf("Calling cancelled URL: %s", url)
+}</span>
+
+func (h *PRHandler) IsPREvent(event *api.Event) bool <span class="cov3" title="2">{
+        return event.EventType == "pull_request"
+}</span>
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package scheduler
+
+import (
+        "fmt"
+        "log"
+        "sort"
+        "sync"
+        "time"
+
+        "github-hub/event-processor/internal/api"
+        "github-hub/event-processor/internal/models"
+        "github-hub/event-processor/internal/storage"
+)
+
+type SchedulerWithStorage struct {
+        client       *api.Client
+        creator      *TaskCreator
+        storage      storage.TaskStorage
+        eventCache   map[int]*api.Event
+        eventCacheMu sync.RWMutex
+}
+
+func NewSchedulerWithStorage(client *api.Client, store storage.TaskStorage) *SchedulerWithStorage <span class="cov10" title="20">{
+        return &amp;SchedulerWithStorage{
+                client:     client,
+                creator:    NewTaskCreator(client, store),
+                storage:    store,
+                eventCache: make(map[int]*api.Event),
+        }
+}</span>
+
+func (s *SchedulerWithStorage) FetchEvents() ([]api.Event, error) <span class="cov0" title="0">{
+        events, err := s.client.GetEvents()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to fetch events: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">s.eventCacheMu.Lock()
+        for _, event := range events </span><span class="cov0" title="0">{
+                s.eventCache[event.ID] = &amp;event
+        }</span>
+        <span class="cov0" title="0">s.eventCacheMu.Unlock()
+
+        return events, nil</span>
+}
+
+func (s *SchedulerWithStorage) ProcessEvents(events []api.Event) error <span class="cov1" title="1">{
+        for _, event := range events </span><span class="cov4" title="3">{
+                if event.EventStatus != "pending" </span><span class="cov3" title="2">{
+                        continue</span>
+                }
+
+                <span class="cov1" title="1">existingTasks, err := s.storage.GetTasksByEventID(event.ID)
+                if err == nil &amp;&amp; len(existingTasks) &gt; 0 </span><span class="cov0" title="0">{
+                        log.Printf("Tasks already exist for event %d, skipping", event.ID)
+                        continue</span>
+                }
+
+                <span class="cov1" title="1">task, err := s.creator.CreateFirstTask(&amp;event)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to create first task for event %d: %v", event.ID, err)
+                        continue</span>
+                }
+
+                <span class="cov1" title="1">if err := s.storage.CreateTask(task); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to save task %s to database: %v", task.TaskName, err)
+                        continue</span>
+                }
+
+                <span class="cov1" title="1">log.Printf("Created first task %s for event %d", task.TaskName, event.ID)</span>
+        }
+
+        <span class="cov1" title="1">return nil</span>
+}
+
+func (s *SchedulerWithStorage) GetNextPendingTask() (*models.Task, *api.Event, error) <span class="cov1" title="1">{
+        pendingTasks, err := s.storage.GetPendingTasks()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, nil, fmt.Errorf("failed to get pending tasks: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">if len(pendingTasks) == 0 </span><span class="cov0" title="0">{
+                return nil, nil, nil
+        }</span>
+
+        <span class="cov1" title="1">sort.Slice(pendingTasks, func(i, j int) bool </span><span class="cov1" title="1">{
+                return pendingTasks[i].ExecuteOrder &lt; pendingTasks[j].ExecuteOrder
+        }</span>)
+
+        <span class="cov1" title="1">nextTask := pendingTasks[0]
+
+        s.eventCacheMu.RLock()
+        event, exists := s.eventCache[nextTask.EventID]
+        s.eventCacheMu.RUnlock()
+
+        if !exists </span><span class="cov0" title="0">{
+                events, err := s.client.GetEvents()
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, nil, fmt.Errorf("event not found in cache and failed to fetch: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">var found *api.Event
+                for i := range events </span><span class="cov0" title="0">{
+                        if events[i].ID == nextTask.EventID </span><span class="cov0" title="0">{
+                                found = &amp;events[i]
+                                break</span>
+                        }
+                }
+
+                <span class="cov0" title="0">if found == nil </span><span class="cov0" title="0">{
+                        return nil, nil, fmt.Errorf("event not found: %d", nextTask.EventID)
+                }</span>
+
+                <span class="cov0" title="0">s.eventCacheMu.Lock()
+                s.eventCache[nextTask.EventID] = found
+                s.eventCacheMu.Unlock()
+
+                event = found</span>
+        }
+
+        <span class="cov1" title="1">return nextTask, event, nil</span>
+}
+
+func (s *SchedulerWithStorage) MarkTaskRunning(task *models.Task) error <span class="cov1" title="1">{
+        task.MarkRunning()
+
+        if err := s.storage.UpdateTask(task); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update task in database: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">if task.TaskName == "basic_ci_all" </span><span class="cov1" title="1">{
+                now := time.Now()
+                if err := s.client.UpdateEventStatus(task.EventID, "processing", now.Format(time.RFC3339)); err != nil </span><span class="cov1" title="1">{
+                        log.Printf("Failed to update event status: %v", err)
+                }</span>
+        }
+
+        <span class="cov1" title="1">return nil</span>
+}
+
+func (s *SchedulerWithStorage) CompleteTask(task *models.Task, results []models.TaskResult) error <span class="cov3" title="2">{
+        task.MarkPassed(results)
+
+        if err := s.storage.UpdateTask(task); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update task in database: %w", err)
+        }</span>
+
+        <span class="cov3" title="2">if len(results) &gt; 0 </span><span class="cov3" title="2">{
+                if err := s.storage.SaveTaskResults(task.ID, results); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to save task results: %v", err)
+                }</span>
+        }
+
+        <span class="cov3" title="2">if err := s.updateQualityChecks(task, results); err != nil </span><span class="cov3" title="2">{
+                log.Printf("Failed to update quality checks: %v", err)
+        }</span>
+
+        <span class="cov3" title="2">if s.creator.ShouldCreateNextTask(task.EventID, task) </span><span class="cov3" title="2">{
+                nextTask, err := s.creator.CreateNextTask(task.EventID, task.ExecuteOrder)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to create next task: %v", err)
+                }</span> else<span class="cov3" title="2"> if nextTask != nil </span><span class="cov3" title="2">{
+                        if err := s.storage.CreateTask(nextTask); err != nil </span><span class="cov0" title="0">{
+                                log.Printf("Failed to save next task to database: %v", err)
+                        }</span> else<span class="cov3" title="2"> {
+                                log.Printf("Created next task %s for event %d", nextTask.TaskName, task.EventID)
+                        }</span>
+                }
+        } else<span class="cov0" title="0"> if s.creator.IsLastTask(task.ExecuteOrder) </span><span class="cov0" title="0">{
+                now := time.Now()
+                if err := s.client.UpdateEventStatus(task.EventID, "completed", now.Format(time.RFC3339)); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to update event status to completed: %v", err)
+                }</span> else<span class="cov0" title="0"> {
+                        log.Printf("Event %d completed successfully", task.EventID)
+                }</span>
+        }
+
+        <span class="cov3" title="2">return nil</span>
+}
+
+func (s *SchedulerWithStorage) FailTask(task *models.Task, reason string) error <span class="cov1" title="1">{
+        task.MarkFailed(reason)
+
+        if err := s.storage.UpdateTask(task); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update task in database: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">if err := s.updateQualityChecksForFailure(task); err != nil </span><span class="cov1" title="1">{
+                log.Printf("Failed to update quality checks: %v", err)
+        }</span>
+
+        <span class="cov1" title="1">now := time.Now()
+        if err := s.client.UpdateEventStatus(task.EventID, "failed", now.Format(time.RFC3339)); err != nil </span><span class="cov1" title="1">{
+                log.Printf("Failed to update event status to failed: %v", err)
+        }</span>
+
+        <span class="cov1" title="1">log.Printf("Event %d marked as failed: %s", task.EventID, reason)
+
+        return nil</span>
+}
+
+func (s *SchedulerWithStorage) CancelTask(task *models.Task, reason string) error <span class="cov1" title="1">{
+        task.MarkCancelled(reason)
+
+        if err := s.storage.UpdateTask(task); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update task in database: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">if err := s.updateQualityChecksForCancelled(task); err != nil </span><span class="cov1" title="1">{
+                log.Printf("Failed to update quality checks: %v", err)
+        }</span>
+
+        <span class="cov1" title="1">now := time.Now()
+        if err := s.client.UpdateEventStatus(task.EventID, "cancelled", now.Format(time.RFC3339)); err != nil </span><span class="cov1" title="1">{
+                log.Printf("Failed to update event status to cancelled: %v", err)
+        }</span>
+
+        <span class="cov1" title="1">return nil</span>
+}
+
+func (s *SchedulerWithStorage) TimeoutTask(task *models.Task, reason string) error <span class="cov1" title="1">{
+        task.MarkTimeout(reason)
+
+        if err := s.storage.UpdateTask(task); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update task in database: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">if err := s.updateQualityChecksForFailure(task); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to update quality checks: %v", err)
+        }</span>
+
+        <span class="cov1" title="1">now := time.Now()
+        if err := s.client.UpdateEventStatus(task.EventID, "failed", now.Format(time.RFC3339)); err != nil </span><span class="cov1" title="1">{
+                log.Printf("Failed to update event status to failed: %v", err)
+        }</span>
+
+        <span class="cov1" title="1">return nil</span>
+}
+
+func (s *SchedulerWithStorage) SkipTask(task *models.Task, reason string) error <span class="cov1" title="1">{
+        task.MarkSkipped(reason)
+
+        if err := s.storage.UpdateTask(task); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update task in database: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">if s.creator.ShouldCreateNextTask(task.EventID, task) </span><span class="cov1" title="1">{
+                nextTask, err := s.creator.CreateNextTask(task.EventID, task.ExecuteOrder)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to create next task: %v", err)
+                }</span> else<span class="cov1" title="1"> if nextTask != nil </span><span class="cov1" title="1">{
+                        if err := s.storage.CreateTask(nextTask); err != nil </span><span class="cov0" title="0">{
+                                log.Printf("Failed to save next task to database: %v", err)
+                        }</span> else<span class="cov1" title="1"> {
+                                log.Printf("Created next task %s for event %d after skip", nextTask.TaskName, task.EventID)
+                        }</span>
+                }
+        } else<span class="cov0" title="0"> if s.creator.IsLastTask(task.ExecuteOrder) </span><span class="cov0" title="0">{
+                now := time.Now()
+                if err := s.client.UpdateEventStatus(task.EventID, "completed", now.Format(time.RFC3339)); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to update event status to completed: %v", err)
+                }</span>
+        }
+
+        <span class="cov1" title="1">return nil</span>
+}
+
+func (s *SchedulerWithStorage) GetRunningTasks() ([]*models.Task, error) <span class="cov1" title="1">{
+        return s.storage.GetRunningTasks()
+}</span>
+
+func (s *SchedulerWithStorage) GetEventFromCache(eventID int) *api.Event <span class="cov3" title="2">{
+        s.eventCacheMu.RLock()
+        defer s.eventCacheMu.RUnlock()
+        return s.eventCache[eventID]
+}</span>
+
+func (s *SchedulerWithStorage) updateQualityChecks(task *models.Task, results []models.TaskResult) error <span class="cov3" title="2">{
+        if task.TaskName == "basic_ci_all" </span><span class="cov3" title="2">{
+                return s.updateBasicCIChecks(task, results)
+        }</span>
+
+        <span class="cov0" title="0">if len(results) == 0 </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">result := results[0]
+        now := time.Now()
+
+        status := "passed"
+        if result.Result == "fail" || result.Result == "timeout" || result.Result == "cancelled" </span><span class="cov0" title="0">{
+                status = "failed"
+        }</span> else<span class="cov0" title="0"> if result.Result == "skipped" </span><span class="cov0" title="0">{
+                status = "skipped"
+        }</span>
+
+        <span class="cov0" title="0">s.eventCacheMu.RLock()
+        event := s.eventCache[task.EventID]
+        s.eventCacheMu.RUnlock()
+
+        if event == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("event not found in cache")
+        }</span>
+
+        <span class="cov0" title="0">var checkID int
+        for _, check := range event.QualityChecks </span><span class="cov0" title="0">{
+                if check.CheckType == result.CheckType </span><span class="cov0" title="0">{
+                        checkID = check.ID
+                        break</span>
+                }
+        }
+
+        <span class="cov0" title="0">if checkID == 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("quality check not found for check_type: %s", result.CheckType)
+        }</span>
+
+        <span class="cov0" title="0">updates := []api.QualityCheckUpdate{
+                {
+                        ID:          checkID,
+                        CheckStatus: status,
+                        StartedAt:   now.Format(time.RFC3339),
+                        CompletedAt: now.Format(time.RFC3339),
+                        Output:      result.Output,
+                },
+        }
+
+        return s.client.BatchUpdateQualityChecks(task.EventID, updates)</span>
+}
+
+func (s *SchedulerWithStorage) updateBasicCIChecks(task *models.Task, results []models.TaskResult) error <span class="cov3" title="2">{
+        var updates []api.QualityCheckUpdate
+        now := time.Now()
+
+        s.eventCacheMu.RLock()
+        event := s.eventCache[task.EventID]
+        s.eventCacheMu.RUnlock()
+
+        if event == nil || len(event.QualityChecks) == 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("event or quality checks not found")
+        }</span>
+
+        <span class="cov3" title="2">basicCIChecks := make(map[string]api.QualityCheck)
+        for _, check := range event.QualityChecks </span><span class="cov6" title="7">{
+                if check.Stage == "basic_ci" </span><span class="cov5" title="5">{
+                        basicCIChecks[check.CheckType] = check
+                }</span>
+        }
+
+        <span class="cov3" title="2">for _, result := range results </span><span class="cov5" title="5">{
+                status := "passed"
+                if result.Result == "fail" || result.Result == "timeout" || result.Result == "cancelled" </span><span class="cov0" title="0">{
+                        status = "failed"
+                }</span> else<span class="cov5" title="5"> if result.Result == "skipped" </span><span class="cov0" title="0">{
+                        status = "skipped"
+                }</span>
+
+                <span class="cov5" title="5">check, exists := basicCIChecks[result.CheckType]
+                if !exists </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov5" title="5">updates = append(updates, api.QualityCheckUpdate{
+                        ID:          check.ID,
+                        CheckStatus: status,
+                        StartedAt:   now.Format(time.RFC3339),
+                        CompletedAt: now.Format(time.RFC3339),
+                        Output:      result.Output,
+                })</span>
+        }
+
+        <span class="cov3" title="2">return s.client.BatchUpdateQualityChecks(task.EventID, updates)</span>
+}
+
+func (s *SchedulerWithStorage) updateQualityChecksForFailure(task *models.Task) error <span class="cov3" title="2">{
+        s.eventCacheMu.RLock()
+        event := s.eventCache[task.EventID]
+        s.eventCacheMu.RUnlock()
+
+        if event == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("event not found in cache")
+        }</span>
+
+        <span class="cov3" title="2">var updates []api.QualityCheckUpdate
+        now := time.Now()
+
+        for _, check := range event.QualityChecks </span><span class="cov3" title="2">{
+                if check.Stage == task.Stage &amp;&amp; check.CheckStatus == "pending" </span><span class="cov1" title="1">{
+                        updates = append(updates, api.QualityCheckUpdate{
+                                ID:           check.ID,
+                                CheckStatus:  "failed",
+                                CompletedAt:  now.Format(time.RFC3339),
+                                ErrorMessage: task.ErrorMessage,
+                        })
+                }</span>
+        }
+
+        <span class="cov3" title="2">if len(updates) &gt; 0 </span><span class="cov1" title="1">{
+                return s.client.BatchUpdateQualityChecks(task.EventID, updates)
+        }</span>
+
+        <span class="cov1" title="1">return nil</span>
+}
+
+func (s *SchedulerWithStorage) updateQualityChecksForCancelled(task *models.Task) error <span class="cov1" title="1">{
+        s.eventCacheMu.RLock()
+        event := s.eventCache[task.EventID]
+        s.eventCacheMu.RUnlock()
+
+        if event == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("event not found in cache")
+        }</span>
+
+        <span class="cov1" title="1">var updates []api.QualityCheckUpdate
+        now := time.Now()
+
+        for _, check := range event.QualityChecks </span><span class="cov1" title="1">{
+                if check.CheckStatus == "pending" || check.CheckStatus == "running" </span><span class="cov1" title="1">{
+                        updates = append(updates, api.QualityCheckUpdate{
+                                ID:           check.ID,
+                                CheckStatus:  "cancelled",
+                                CompletedAt:  now.Format(time.RFC3339),
+                                ErrorMessage: task.ErrorMessage,
+                        })
+                }</span>
+        }
+
+        <span class="cov1" title="1">if len(updates) &gt; 0 </span><span class="cov1" title="1">{
+                return s.client.BatchUpdateQualityChecks(task.EventID, updates)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (s *SchedulerWithStorage) GetTasksByEventID(eventID int) ([]*models.Task, error) <span class="cov3" title="2">{
+        return s.storage.GetTasksByEventID(eventID)
+}</span>
+
+func (s *SchedulerWithStorage) GetLatestTaskByEventID(eventID int) (*models.Task, error) <span class="cov0" title="0">{
+        return s.storage.GetLatestTaskByEventID(eventID)
+}</span>
+
+func (s *SchedulerWithStorage) UpdateTask(task *models.Task) error <span class="cov0" title="0">{
+        return s.storage.UpdateTask(task)
+}</span>
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package storage
+
+import (
+        "time"
+
+        "github-hub/event-processor/internal/api"
+        "github-hub/event-processor/internal/models"
+)
+
+type TaskStorageAdapter struct {
+        *MySQLTaskStorage
+}
+
+func NewTaskStorageAdapter(storage *MySQLTaskStorage) *TaskStorageAdapter <span class="cov0" title="0">{
+        return &amp;TaskStorageAdapter{MySQLTaskStorage: storage}
+}</span>
+
+func (a *TaskStorageAdapter) GetAllTasks() ([]api.TaskResponse, error) <span class="cov0" title="0">{
+        tasks, err := a.ListTasks()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">var responses []api.TaskResponse
+        for _, task := range tasks </span><span class="cov0" title="0">{
+                responses = append(responses, convertTaskToResponse(task))
+        }</span>
+        <span class="cov0" title="0">return responses, nil</span>
+}
+
+func (a *TaskStorageAdapter) GetTaskByID(id int) (*api.TaskResponse, error) <span class="cov0" title="0">{
+        task, err := a.GetTask(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">if task == nil </span><span class="cov0" title="0">{
+                return nil, nil
+        }</span>
+        <span class="cov0" title="0">resp := convertTaskToResponse(task)
+        return &amp;resp, nil</span>
+}
+
+func (a *TaskStorageAdapter) GetTasksByEventID(eventID int) ([]api.TaskResponse, error) <span class="cov0" title="0">{
+        tasks, err := a.MySQLTaskStorage.GetTasksByEventID(eventID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">var responses []api.TaskResponse
+        for _, task := range tasks </span><span class="cov0" title="0">{
+                responses = append(responses, convertTaskToResponse(task))
+        }</span>
+        <span class="cov0" title="0">return responses, nil</span>
+}
+
+func convertTaskToResponse(task *models.Task) api.TaskResponse <span class="cov0" title="0">{
+        var startTime, endTime, createdAt, updatedAt string
+        if task.StartTime != nil &amp;&amp; !task.StartTime.Time.IsZero() </span><span class="cov0" title="0">{
+                startTime = task.StartTime.Time.Format(time.RFC3339)
+        }</span>
+        <span class="cov0" title="0">if task.EndTime != nil &amp;&amp; !task.EndTime.Time.IsZero() </span><span class="cov0" title="0">{
+                endTime = task.EndTime.Time.Format(time.RFC3339)
+        }</span>
+        <span class="cov0" title="0">if !task.CreatedAt.IsZero() </span><span class="cov0" title="0">{
+                createdAt = task.CreatedAt.Format(time.RFC3339)
+        }</span>
+        <span class="cov0" title="0">if !task.UpdatedAt.IsZero() </span><span class="cov0" title="0">{
+                updatedAt = task.UpdatedAt.Format(time.RFC3339)
+        }</span>
+
+        <span class="cov0" title="0">var results []api.TaskResultResponse
+        for _, r := range task.Results </span><span class="cov0" title="0">{
+                results = append(results, api.TaskResultResponse{
+                        CheckType: r.CheckType,
+                        Result:    r.Result,
+                        Output:    r.Output,
+                        Extra:     r.Extra,
+                })
+        }</span>
+
+        <span class="cov0" title="0">return api.TaskResponse{
+                ID:           task.ID,
+                TaskID:       task.TaskID,
+                TaskName:     task.TaskName,
+                EventID:      task.EventID,
+                Stage:        task.Stage,
+                StageOrder:   task.StageOrder,
+                ExecuteOrder: task.ExecuteOrder,
+                Status:       string(task.Status),
+                StartTime:    &amp;startTime,
+                EndTime:      &amp;endTime,
+                ErrorMessage: task.ErrorMessage,
+                Results:      results,
+                CreatedAt:    createdAt,
+                UpdatedAt:    updatedAt,
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package storage
+
+import (
+        "database/sql"
+        "encoding/json"
+        "fmt"
+        "time"
+
+        "github-hub/event-processor/internal/models"
+
+        _ "github.com/go-sql-driver/mysql"
+)
+
+// TaskStorage 任务存储接口
+type TaskStorage interface {
+        // CreateTask 创建新任务
+        CreateTask(task *models.Task) error
+
+        // GetTask 根据 ID 获取任务
+        GetTask(id int) (*models.Task, error)
+
+        // GetTaskByTaskID 根据 task_id 获取任务
+        GetTaskByTaskID(taskID string) (*models.Task, error)
+
+        // ListTasks 列出所有任务
+        ListTasks() ([]*models.Task, error)
+
+        // UpdateTask 更新任务
+        UpdateTask(task *models.Task) error
+
+        // DeleteTask 删除任务
+        DeleteTask(id int) error
+
+        // DeleteAllTasks 删除所有任务（包括任务结果）
+        DeleteAllTasks() error
+
+        // GetPendingTasks 获取待执行的任务（按 execute_order 排序）
+        GetPendingTasks() ([]*models.Task, error)
+
+        // GetRunningTasks 获取正在运行的任务
+        GetRunningTasks() ([]*models.Task, error)
+
+        // GetTasksByStatus 根据状态获取任务
+        GetTasksByStatus(status models.TaskStatus) ([]*models.Task, error)
+
+        // GetTasksByEventID 根据事件 ID 获取任务
+        GetTasksByEventID(eventID int) ([]*models.Task, error)
+
+        // GetLatestTaskByEventID 获取事件的最新任务（按execute_order降序）
+        GetLatestTaskByEventID(eventID int) (*models.Task, error)
+
+        // GetCompletedTasksByEventID 获取事件的已完成任务
+        GetCompletedTasksByEventID(eventID int) ([]*models.Task, error)
+
+        // SaveTaskResults 保存任务结果
+        SaveTaskResults(taskID int, results []models.TaskResult) error
+
+        // GetTaskResults 获取任务结果
+        GetTaskResults(taskID int) ([]models.TaskResult, error)
+
+        // MarkTaskCancelled 标记任务为取消
+        MarkTaskCancelled(task *models.Task, reason string) error
+
+        // MarkTaskTimeout 标记任务为超时
+        MarkTaskTimeout(task *models.Task, reason string) error
+
+        // MarkTaskSkipped 标记任务为跳过
+        MarkTaskSkipped(task *models.Task, reason string) error
+
+        // Close 关闭数据库连接
+        Close() error
+}
+
+// MySQLTaskStorage MySQL 任务存储实现
+type MySQLTaskStorage struct {
+        db *sql.DB
+}
+
+// NewMySQLTaskStorage 创建 MySQL 任务存储
+func NewMySQLTaskStorage(dsn string) (*MySQLTaskStorage, error) <span class="cov0" title="0">{
+        db, err := sql.Open("mysql", dsn)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to open database: %w", err)
+        }</span>
+
+        // 测试连接
+        <span class="cov0" title="0">if err := db.Ping(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to ping database: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;MySQLTaskStorage{db: db}, nil</span>
+}
+
+// CreateTask 创建新任务
+func (s *MySQLTaskStorage) CreateTask(task *models.Task) error <span class="cov0" title="0">{
+        query := `
+                INSERT INTO tasks (
+                        task_id, task_name, event_id, check_type, stage, stage_order,
+                        check_order, execute_order, request_url, cancelled_request_url,
+                        status, start_time, end_time, error_message, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+
+        var startTime, endTime sql.NullTime
+        if task.StartTime != nil &amp;&amp; !task.StartTime.Time.IsZero() </span><span class="cov0" title="0">{
+                startTime = sql.NullTime{Time: task.StartTime.Time, Valid: true}
+        }</span>
+        <span class="cov0" title="0">if task.EndTime != nil &amp;&amp; !task.EndTime.Time.IsZero() </span><span class="cov0" title="0">{
+                endTime = sql.NullTime{Time: task.EndTime.Time, Valid: true}
+        }</span>
+
+        <span class="cov0" title="0">result, err := s.db.Exec(
+                query,
+                task.TaskID, task.TaskName, task.EventID, task.CheckType, task.Stage,
+                task.StageOrder, task.CheckOrder, task.ExecuteOrder, task.RequestURL,
+                task.CancelledURL, task.Status, startTime, endTime, task.ErrorMessage,
+                task.CreatedAt, task.UpdatedAt,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create task: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">id, err := result.LastInsertId()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to get last insert id: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">task.ID = int(id)
+        return nil</span>
+}
+
+// GetTask 根据 ID 获取任务
+func (s *MySQLTaskStorage) GetTask(id int) (*models.Task, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
+                        check_order, execute_order, request_url, cancelled_request_url,
+                        status, start_time, end_time, error_message, created_at, updated_at
+                FROM tasks
+                WHERE id = ?
+        `
+
+        task := &amp;models.Task{}
+        var startTime, endTime sql.NullTime
+
+        err := s.db.QueryRow(query, id).Scan(
+                &amp;task.ID, &amp;task.TaskID, &amp;task.TaskName, &amp;task.EventID, &amp;task.CheckType,
+                &amp;task.Stage, &amp;task.StageOrder, &amp;task.CheckOrder, &amp;task.ExecuteOrder,
+                &amp;task.RequestURL, &amp;task.CancelledURL, &amp;task.Status,
+                &amp;startTime, &amp;endTime, &amp;task.ErrorMessage, &amp;task.CreatedAt, &amp;task.UpdatedAt,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                if err == sql.ErrNoRows </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("task not found")
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to get task: %w", err)</span>
+        }
+
+        <span class="cov0" title="0">if startTime.Valid </span><span class="cov0" title="0">{
+                task.StartTime = &amp;models.LocalTime{Time: startTime.Time}
+        }</span>
+        <span class="cov0" title="0">if endTime.Valid </span><span class="cov0" title="0">{
+                task.EndTime = &amp;models.LocalTime{Time: endTime.Time}
+        }</span>
+
+        <span class="cov0" title="0">return task, nil</span>
+}
+
+// GetTaskByTaskID 根据 task_id 获取任务
+func (s *MySQLTaskStorage) GetTaskByTaskID(taskID string) (*models.Task, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
+                        check_order, execute_order, request_url, cancelled_request_url,
+                        status, start_time, end_time, error_message, created_at, updated_at
+                FROM tasks
+                WHERE task_id = ?
+        `
+
+        task := &amp;models.Task{}
+        var startTime, endTime sql.NullTime
+
+        err := s.db.QueryRow(query, taskID).Scan(
+                &amp;task.ID, &amp;task.TaskID, &amp;task.TaskName, &amp;task.EventID, &amp;task.CheckType,
+                &amp;task.Stage, &amp;task.StageOrder, &amp;task.CheckOrder, &amp;task.ExecuteOrder,
+                &amp;task.RequestURL, &amp;task.CancelledURL, &amp;task.Status,
+                &amp;startTime, &amp;endTime, &amp;task.ErrorMessage, &amp;task.CreatedAt, &amp;task.UpdatedAt,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                if err == sql.ErrNoRows </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("task not found")
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to get task: %w", err)</span>
+        }
+
+        <span class="cov0" title="0">if startTime.Valid </span><span class="cov0" title="0">{
+                task.StartTime = &amp;models.LocalTime{Time: startTime.Time}
+        }</span>
+        <span class="cov0" title="0">if endTime.Valid </span><span class="cov0" title="0">{
+                task.EndTime = &amp;models.LocalTime{Time: endTime.Time}
+        }</span>
+
+        <span class="cov0" title="0">return task, nil</span>
+}
+
+// ListTasks 列出所有任务
+func (s *MySQLTaskStorage) ListTasks() ([]*models.Task, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
+                        check_order, execute_order, request_url, cancelled_request_url,
+                        status, start_time, end_time, error_message, created_at, updated_at
+                FROM tasks
+                ORDER BY execute_order ASC
+        `
+
+        rows, err := s.db.Query(query)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list tasks: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var tasks []*models.Task
+        for rows.Next() </span><span class="cov0" title="0">{
+                task := &amp;models.Task{}
+                var startTime, endTime sql.NullTime
+
+                err := rows.Scan(
+                        &amp;task.ID, &amp;task.TaskID, &amp;task.TaskName, &amp;task.EventID, &amp;task.CheckType,
+                        &amp;task.Stage, &amp;task.StageOrder, &amp;task.CheckOrder, &amp;task.ExecuteOrder,
+                        &amp;task.RequestURL, &amp;task.CancelledURL, &amp;task.Status,
+                        &amp;startTime, &amp;endTime, &amp;task.ErrorMessage, &amp;task.CreatedAt, &amp;task.UpdatedAt,
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan task: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">if startTime.Valid </span><span class="cov0" title="0">{
+                        task.StartTime = &amp;models.LocalTime{Time: startTime.Time}
+                }</span>
+                <span class="cov0" title="0">if endTime.Valid </span><span class="cov0" title="0">{
+                        task.EndTime = &amp;models.LocalTime{Time: endTime.Time}
+                }</span>
+
+                <span class="cov0" title="0">tasks = append(tasks, task)</span>
+        }
+
+        <span class="cov0" title="0">return tasks, nil</span>
+}
+
+// UpdateTask 更新任务
+func (s *MySQLTaskStorage) UpdateTask(task *models.Task) error <span class="cov0" title="0">{
+        query := `
+                UPDATE tasks SET
+                        task_name = ?, event_id = ?, check_type = ?, stage = ?, stage_order = ?,
+                        check_order = ?, execute_order = ?, request_url = ?, cancelled_request_url = ?,
+                        status = ?, start_time = ?, end_time = ?, error_message = ?, updated_at = ?
+                WHERE id = ?
+        `
+
+        var startTime, endTime sql.NullTime
+        if task.StartTime != nil &amp;&amp; !task.StartTime.Time.IsZero() </span><span class="cov0" title="0">{
+                startTime = sql.NullTime{Time: task.StartTime.Time, Valid: true}
+        }</span>
+        <span class="cov0" title="0">if task.EndTime != nil &amp;&amp; !task.EndTime.Time.IsZero() </span><span class="cov0" title="0">{
+                endTime = sql.NullTime{Time: task.EndTime.Time, Valid: true}
+        }</span>
+
+        <span class="cov0" title="0">_, err := s.db.Exec(
+                query,
+                task.TaskName, task.EventID, task.CheckType, task.Stage, task.StageOrder,
+                task.CheckOrder, task.ExecuteOrder, task.RequestURL, task.CancelledURL,
+                task.Status, startTime, endTime, task.ErrorMessage, task.UpdatedAt, task.ID,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update task: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// DeleteTask 删除任务
+func (s *MySQLTaskStorage) DeleteTask(id int) error <span class="cov0" title="0">{
+        query := `DELETE FROM tasks WHERE id = ?`
+
+        _, err := s.db.Exec(query, id)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete task: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// DeleteAllTasks 删除所有任务（包括任务结果）
+func (s *MySQLTaskStorage) DeleteAllTasks() error <span class="cov0" title="0">{
+        tx, err := s.db.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to begin transaction: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{
+                if err != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                }</span>
+        }()
+
+        <span class="cov0" title="0">_, err = tx.Exec("DELETE FROM task_results")
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete task results: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">_, err = tx.Exec("DELETE FROM tasks")
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete tasks: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if err = tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to commit transaction: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// GetPendingTasks 获取待执行的任务（按 execute_order 排序）
+func (s *MySQLTaskStorage) GetPendingTasks() ([]*models.Task, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
+                        check_order, execute_order, request_url, cancelled_request_url,
+                        status, start_time, end_time, error_message, created_at, updated_at
+                FROM tasks
+                WHERE status = 'pending'
+                ORDER BY execute_order ASC
+        `
+
+        return s.listTasksByQuery(query)
+}</span>
+
+// GetRunningTasks 获取正在运行的任务
+func (s *MySQLTaskStorage) GetRunningTasks() ([]*models.Task, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
+                        check_order, execute_order, request_url, cancelled_request_url,
+                        status, start_time, end_time, error_message, created_at, updated_at
+                FROM tasks
+                WHERE status = 'running'
+                ORDER BY start_time ASC
+        `
+
+        return s.listTasksByQuery(query)
+}</span>
+
+// GetTasksByStatus 根据状态获取任务
+func (s *MySQLTaskStorage) GetTasksByStatus(status models.TaskStatus) ([]*models.Task, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
+                        check_order, execute_order, request_url, cancelled_request_url,
+                        status, start_time, end_time, error_message, created_at, updated_at
+                FROM tasks
+                WHERE status = ?
+                ORDER BY execute_order ASC
+        `
+
+        rows, err := s.db.Query(query, status)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get tasks by status: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var tasks []*models.Task
+        for rows.Next() </span><span class="cov0" title="0">{
+                task := &amp;models.Task{}
+                var startTime, endTime sql.NullTime
+
+                err := rows.Scan(
+                        &amp;task.ID, &amp;task.TaskID, &amp;task.TaskName, &amp;task.EventID, &amp;task.CheckType,
+                        &amp;task.Stage, &amp;task.StageOrder, &amp;task.CheckOrder, &amp;task.ExecuteOrder,
+                        &amp;task.RequestURL, &amp;task.CancelledURL, &amp;task.Status,
+                        &amp;startTime, &amp;endTime, &amp;task.ErrorMessage, &amp;task.CreatedAt, &amp;task.UpdatedAt,
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan task: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">if startTime.Valid </span><span class="cov0" title="0">{
+                        task.StartTime = &amp;models.LocalTime{Time: startTime.Time}
+                }</span>
+                <span class="cov0" title="0">if endTime.Valid </span><span class="cov0" title="0">{
+                        task.EndTime = &amp;models.LocalTime{Time: endTime.Time}
+                }</span>
+
+                <span class="cov0" title="0">tasks = append(tasks, task)</span>
+        }
+
+        <span class="cov0" title="0">return tasks, nil</span>
+}
+
+// GetTasksByEventID 根据事件 ID 获取任务
+func (s *MySQLTaskStorage) GetTasksByEventID(eventID int) ([]*models.Task, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
+                        check_order, execute_order, request_url, cancelled_request_url,
+                        status, start_time, end_time, error_message, created_at, updated_at
+                FROM tasks
+                WHERE event_id = ?
+                ORDER BY execute_order ASC
+        `
+
+        rows, err := s.db.Query(query, eventID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get tasks by event id: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var tasks []*models.Task
+        for rows.Next() </span><span class="cov0" title="0">{
+                task := &amp;models.Task{}
+                var startTime, endTime sql.NullTime
+
+                err := rows.Scan(
+                        &amp;task.ID, &amp;task.TaskID, &amp;task.TaskName, &amp;task.EventID, &amp;task.CheckType,
+                        &amp;task.Stage, &amp;task.StageOrder, &amp;task.CheckOrder, &amp;task.ExecuteOrder,
+                        &amp;task.RequestURL, &amp;task.CancelledURL, &amp;task.Status,
+                        &amp;startTime, &amp;endTime, &amp;task.ErrorMessage, &amp;task.CreatedAt, &amp;task.UpdatedAt,
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan task: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">if startTime.Valid </span><span class="cov0" title="0">{
+                        task.StartTime = &amp;models.LocalTime{Time: startTime.Time}
+                }</span>
+                <span class="cov0" title="0">if endTime.Valid </span><span class="cov0" title="0">{
+                        task.EndTime = &amp;models.LocalTime{Time: endTime.Time}
+                }</span>
+
+                <span class="cov0" title="0">tasks = append(tasks, task)</span>
+        }
+
+        <span class="cov0" title="0">return tasks, nil</span>
+}
+
+// Close 关闭数据库连接
+func (s *MySQLTaskStorage) Close() error <span class="cov0" title="0">{
+        return s.db.Close()
+}</span>
+
+// listTasksByQuery 根据查询语句列出任务
+func (s *MySQLTaskStorage) listTasksByQuery(query string) ([]*models.Task, error) <span class="cov0" title="0">{
+        rows, err := s.db.Query(query)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to query tasks: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var tasks []*models.Task
+        for rows.Next() </span><span class="cov0" title="0">{
+                task := &amp;models.Task{}
+                var startTime, endTime sql.NullTime
+
+                err := rows.Scan(
+                        &amp;task.ID, &amp;task.TaskID, &amp;task.TaskName, &amp;task.EventID, &amp;task.CheckType,
+                        &amp;task.Stage, &amp;task.StageOrder, &amp;task.CheckOrder, &amp;task.ExecuteOrder,
+                        &amp;task.RequestURL, &amp;task.CancelledURL, &amp;task.Status,
+                        &amp;startTime, &amp;endTime, &amp;task.ErrorMessage, &amp;task.CreatedAt, &amp;task.UpdatedAt,
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan task: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">if startTime.Valid </span><span class="cov0" title="0">{
+                        task.StartTime = &amp;models.LocalTime{Time: startTime.Time}
+                }</span>
+                <span class="cov0" title="0">if endTime.Valid </span><span class="cov0" title="0">{
+                        task.EndTime = &amp;models.LocalTime{Time: endTime.Time}
+                }</span>
+
+                <span class="cov0" title="0">tasks = append(tasks, task)</span>
+        }
+
+        <span class="cov0" title="0">return tasks, nil</span>
+}
+
+// MarkTaskRunning 标记任务为运行中
+func (s *MySQLTaskStorage) MarkTaskRunning(task *models.Task) error <span class="cov0" title="0">{
+        now := time.Now()
+        query := `
+                UPDATE tasks SET
+                        status = 'running',
+                        start_time = ?,
+                        updated_at = ?
+                WHERE id = ?
+        `
+
+        _, err := s.db.Exec(query, now, now, task.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to mark task running: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">task.Status = models.TaskStatusRunning
+        task.StartTime = &amp;models.LocalTime{Time: now}
+        task.UpdatedAt = now
+        return nil</span>
+}
+
+// MarkTaskCompleted 标记任务为完成
+func (s *MySQLTaskStorage) MarkTaskCompleted(task *models.Task, results []models.TaskResult) error <span class="cov0" title="0">{
+        now := time.Now()
+        query := `
+                UPDATE tasks SET
+                        status = 'passed',
+                        end_time = ?,
+                        updated_at = ?
+                WHERE id = ?
+        `
+
+        _, err := s.db.Exec(query, now, now, task.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to mark task completed: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">task.Status = models.TaskStatusPassed
+        task.EndTime = &amp;models.LocalTime{Time: now}
+        task.Results = results
+        task.UpdatedAt = now
+        return nil</span>
+}
+
+// MarkTaskFailed 标记任务为失败
+func (s *MySQLTaskStorage) MarkTaskFailed(task *models.Task, reason string) error <span class="cov0" title="0">{
+        now := time.Now()
+        query := `
+                UPDATE tasks SET
+                        status = 'failed',
+                        end_time = ?,
+                        error_message = ?,
+                        updated_at = ?
+                WHERE id = ?
+        `
+
+        _, err := s.db.Exec(query, now, reason, now, task.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to mark task failed: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">task.Status = models.TaskStatusFailed
+        task.EndTime = &amp;models.LocalTime{Time: now}
+        task.ErrorMessage = reason
+        task.UpdatedAt = now
+        return nil</span>
+}
+
+// MarkTaskCancelled 标记任务为取消
+func (s *MySQLTaskStorage) MarkTaskCancelled(task *models.Task, reason string) error <span class="cov0" title="0">{
+        now := time.Now()
+        query := `
+                UPDATE tasks SET
+                        status = 'cancelled',
+                        end_time = ?,
+                        error_message = ?,
+                        updated_at = ?
+                WHERE id = ?
+        `
+
+        _, err := s.db.Exec(query, now, reason, now, task.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to mark task cancelled: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">task.Status = models.TaskStatusCancelled
+        task.EndTime = &amp;models.LocalTime{Time: now}
+        task.ErrorMessage = reason
+        task.UpdatedAt = now
+        return nil</span>
+}
+
+// MarkTaskTimeout 标记任务为超时
+func (s *MySQLTaskStorage) MarkTaskTimeout(task *models.Task, reason string) error <span class="cov0" title="0">{
+        now := time.Now()
+        query := `
+                UPDATE tasks SET
+                        status = 'timeout',
+                        end_time = ?,
+                        error_message = ?,
+                        updated_at = ?
+                WHERE id = ?
+        `
+
+        _, err := s.db.Exec(query, now, reason, now, task.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to mark task timeout: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">task.Status = models.TaskStatusTimeout
+        task.EndTime = &amp;models.LocalTime{Time: now}
+        task.ErrorMessage = reason
+        task.UpdatedAt = now
+        return nil</span>
+}
+
+// MarkTaskSkipped 标记任务为跳过
+func (s *MySQLTaskStorage) MarkTaskSkipped(task *models.Task, reason string) error <span class="cov0" title="0">{
+        now := time.Now()
+        query := `
+                UPDATE tasks SET
+                        status = 'skipped',
+                        end_time = ?,
+                        error_message = ?,
+                        updated_at = ?
+                WHERE id = ?
+        `
+
+        _, err := s.db.Exec(query, now, reason, now, task.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to mark task skipped: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">task.Status = models.TaskStatusSkipped
+        task.EndTime = &amp;models.LocalTime{Time: now}
+        task.ErrorMessage = reason
+        task.UpdatedAt = now
+        return nil</span>
+}
+
+// GetLatestTaskByEventID 获取事件的最新任务（按execute_order降序）
+func (s *MySQLTaskStorage) GetLatestTaskByEventID(eventID int) (*models.Task, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
+                        check_order, execute_order, request_url, cancelled_request_url,
+                        status, start_time, end_time, error_message, created_at, updated_at
+                FROM tasks
+                WHERE event_id = ?
+                ORDER BY execute_order DESC
+                LIMIT 1
+        `
+
+        task := &amp;models.Task{}
+        var startTime, endTime sql.NullTime
+
+        err := s.db.QueryRow(query, eventID).Scan(
+                &amp;task.ID, &amp;task.TaskID, &amp;task.TaskName, &amp;task.EventID, &amp;task.CheckType,
+                &amp;task.Stage, &amp;task.StageOrder, &amp;task.CheckOrder, &amp;task.ExecuteOrder,
+                &amp;task.RequestURL, &amp;task.CancelledURL, &amp;task.Status,
+                &amp;startTime, &amp;endTime, &amp;task.ErrorMessage, &amp;task.CreatedAt, &amp;task.UpdatedAt,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                if err == sql.ErrNoRows </span><span class="cov0" title="0">{
+                        return nil, nil
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to get latest task: %w", err)</span>
+        }
+
+        <span class="cov0" title="0">if startTime.Valid </span><span class="cov0" title="0">{
+                task.StartTime = &amp;models.LocalTime{Time: startTime.Time}
+        }</span>
+        <span class="cov0" title="0">if endTime.Valid </span><span class="cov0" title="0">{
+                task.EndTime = &amp;models.LocalTime{Time: endTime.Time}
+        }</span>
+
+        <span class="cov0" title="0">return task, nil</span>
+}
+
+// GetCompletedTasksByEventID 获取事件的已完成任务
+func (s *MySQLTaskStorage) GetCompletedTasksByEventID(eventID int) ([]*models.Task, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
+                        check_order, execute_order, request_url, cancelled_request_url,
+                        status, start_time, end_time, error_message, created_at, updated_at
+                FROM tasks
+                WHERE event_id = ? AND status IN ('passed', 'failed', 'timeout', 'cancelled', 'skipped')
+                ORDER BY execute_order ASC
+        `
+
+        rows, err := s.db.Query(query, eventID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get completed tasks: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var tasks []*models.Task
+        for rows.Next() </span><span class="cov0" title="0">{
+                task := &amp;models.Task{}
+                var startTime, endTime sql.NullTime
+
+                err := rows.Scan(
+                        &amp;task.ID, &amp;task.TaskID, &amp;task.TaskName, &amp;task.EventID, &amp;task.CheckType,
+                        &amp;task.Stage, &amp;task.StageOrder, &amp;task.CheckOrder, &amp;task.ExecuteOrder,
+                        &amp;task.RequestURL, &amp;task.CancelledURL, &amp;task.Status,
+                        &amp;startTime, &amp;endTime, &amp;task.ErrorMessage, &amp;task.CreatedAt, &amp;task.UpdatedAt,
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan task: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">if startTime.Valid </span><span class="cov0" title="0">{
+                        task.StartTime = &amp;models.LocalTime{Time: startTime.Time}
+                }</span>
+                <span class="cov0" title="0">if endTime.Valid </span><span class="cov0" title="0">{
+                        task.EndTime = &amp;models.LocalTime{Time: endTime.Time}
+                }</span>
+
+                <span class="cov0" title="0">tasks = append(tasks, task)</span>
+        }
+
+        <span class="cov0" title="0">return tasks, nil</span>
+}
+
+// SaveTaskResults 保存任务结果
+func (s *MySQLTaskStorage) SaveTaskResults(taskID int, results []models.TaskResult) error <span class="cov0" title="0">{
+        for _, result := range results </span><span class="cov0" title="0">{
+                query := `
+                        INSERT INTO task_results (task_id, check_type, result, output, extra, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                `
+
+                var extraJSON []byte
+                if result.Extra != nil </span><span class="cov0" title="0">{
+                        var err error
+                        extraJSON, err = json.Marshal(result.Extra)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return fmt.Errorf("failed to marshal extra: %w", err)
+                        }</span>
+                }
+
+                <span class="cov0" title="0">_, err := s.db.Exec(query, taskID, result.CheckType, result.Result, result.Output, extraJSON, time.Now())
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to save task result: %w", err)
+                }</span>
+        }
+        <span class="cov0" title="0">return nil</span>
+}
+
+// GetTaskResults 获取任务结果
+func (s *MySQLTaskStorage) GetTaskResults(taskID int) ([]models.TaskResult, error) <span class="cov0" title="0">{
+        query := `
+                SELECT check_type, result, output, extra
+                FROM task_results
+                WHERE task_id = ?
+                ORDER BY id ASC
+        `
+
+        rows, err := s.db.Query(query, taskID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get task results: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var results []models.TaskResult
+        for rows.Next() </span><span class="cov0" title="0">{
+                var result models.TaskResult
+                var extraJSON []byte
+
+                err := rows.Scan(&amp;result.CheckType, &amp;result.Result, &amp;result.Output, &amp;extraJSON)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan task result: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">if len(extraJSON) &gt; 0 </span><span class="cov0" title="0">{
+                        result.Extra = make(map[string]interface{})
+                        if err := json.Unmarshal(extraJSON, &amp;result.Extra); err != nil </span><span class="cov0" title="0">{
+                                return nil, fmt.Errorf("failed to unmarshal extra: %w", err)
+                        }</span>
+                }
+
+                <span class="cov0" title="0">results = append(results, result)</span>
+        }
+
+        <span class="cov0" title="0">return results, nil</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
