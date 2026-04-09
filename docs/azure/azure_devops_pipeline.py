@@ -335,8 +335,10 @@ def test_pipeline_functions():
     import time
     import json
 
-    # 支持从环境变量读取 PAT
+    # 从环境变量读取 PAT
     pat = os.environ.get("AZURE_DEVOPS_PAT")
+    if not pat:
+        raise ValueError("请设置环境变量 AZURE_DEVOPS_PAT")
 
     test_config = {
         "organization": "AISHUDevOps",
@@ -541,8 +543,10 @@ def test_pipeline_functions_2():
     import time
     import json
 
-    # 支持从环境变量读取 PAT
+    # 从环境变量读取 PAT
     pat = os.environ.get("AZURE_DEVOPS_PAT")
+    if not pat:
+        raise ValueError("请设置环境变量 AZURE_DEVOPS_PAT")
 
     test_config = {
         "organization": "AISHUDevOps",
