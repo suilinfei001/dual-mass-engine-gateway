@@ -142,6 +142,10 @@ func (s *Server) Start() error {
 		consoleHandler.RegisterRoutes(router, authMiddleware, adminMiddleware)
 	}
 
+	// Resource Pool API 代理 - 转发所有 /api/resource-pool/* 请求到 resource-pool-server
+	resourcePoolProxyHandler := NewResourcePoolProxyHandler(s.configStorage)
+	router.PathPrefix("/api/resource-pool/").Handler(resourcePoolProxyHandler)
+
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("/app/static")))
 
 	corsMiddleware := func(next http.Handler) http.Handler {

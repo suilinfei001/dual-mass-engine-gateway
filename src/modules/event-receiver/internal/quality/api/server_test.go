@@ -364,7 +364,7 @@ func TestHandleLogin(t *testing.T) {
 		{
 			name:           "valid login",
 			username:       "admin",
-			password:       "admin",
+			password:       "admin123",
 			expectedStatus: http.StatusOK,
 			expectSuccess:  true,
 			expectCookie:   true,
@@ -463,7 +463,7 @@ func TestHandleCheckLogin(t *testing.T) {
 		// First login
 		loginPayload := map[string]interface{}{
 			"username": "admin",
-			"password": "admin",
+			"password": "admin123",
 		}
 		body, _ := json.Marshal(loginPayload)
 		loginReq := httptest.NewRequest(http.MethodPost, "/api/login", bytes.NewReader(body))
@@ -533,7 +533,7 @@ func TestHandleLogout(t *testing.T) {
 		// First login
 		loginPayload := map[string]interface{}{
 			"username": "admin",
-			"password": "admin",
+			"password": "admin123",
 		}
 		body, _ := json.Marshal(loginPayload)
 		loginReq := httptest.NewRequest(http.MethodPost, "/api/login", bytes.NewReader(body))

@@ -9,19 +9,19 @@ import (
 	"strings"
 	"time"
 
-	"github-hub/event-processor/internal/api"
 	"github-hub/event-processor/internal/ai"
+	"github-hub/event-processor/internal/api"
 	"github-hub/event-processor/internal/models"
 	"github-hub/event-processor/internal/storage"
 )
 
 // TaskExecutionService handles task execution using Azure DevOps pipelines
 type TaskExecutionService struct {
-	configStorage  *storage.MySQLConfigStorage
+	configStorage   *storage.MySQLConfigStorage
 	resourceStorage *storage.MySQLResourceStorage
-	taskStorage    *storage.MySQLTaskStorage
-	eventClient    *api.Client
-	logAnalyzer    *ai.LogAnalyzer
+	taskStorage     *storage.MySQLTaskStorage
+	eventClient     *api.Client
+	logAnalyzer     *ai.LogAnalyzer
 }
 
 // NewTaskExecutionService creates a new TaskExecutionService
@@ -32,11 +32,11 @@ func NewTaskExecutionService(
 	eventClient *api.Client,
 ) *TaskExecutionService {
 	return &TaskExecutionService{
-		configStorage:  configStorage,
+		configStorage:   configStorage,
 		resourceStorage: resourceStorage,
-		taskStorage:    taskStorage,
-		eventClient:    eventClient,
-		logAnalyzer:    ai.NewLogAnalyzer(configStorage),
+		taskStorage:     taskStorage,
+		eventClient:     eventClient,
+		logAnalyzer:     ai.NewLogAnalyzer(configStorage),
 	}
 }
 
@@ -78,24 +78,29 @@ func (s *TaskExecutionService) ExecuteTask(ctx context.Context, task *models.Tas
 
 	// Get event to extract branch information
 	branch := "refs/heads/main" // default branch
+	var eventBranch string      // 用于 SOURCE_CODE_BRANCH 参数
 
-	// For basic_ci_all, use refs/heads/develop as the Azure DevOps branch
-	if task.TaskName == "basic_ci_all" {
+	// For basic_ci_all and deployment_deployment, use refs/heads/develop as the Azure DevOps branch
+	if task.TaskName == "basic_ci_all" || task.TaskName == "deployment_deployment" {
 		branch = "refs/heads/develop"
-		log.Printf("[TaskExecutionService] Using default Azure branch for basic_ci_all: %s", branch)
-	} else if s.eventClient != nil {
-		// For other task types, try to get the branch from the event
+		log.Printf("[TaskExecutionService] Using default Azure branch for %s: %s", task.TaskName, branch)
+	}
+
+	// Get event to extract real branch for SOURCE_CODE_BRANCH parameter
+	if s.eventClient != nil {
 		event, err := s.eventClient.GetEvent(task.EventID)
 		if err == nil && event != nil {
-			// Use the branch from the event
-			if event.Branch != "" {
-				// Format branch as refs/heads/{branch} if not already formatted
-				if !strings.HasPrefix(event.Branch, "refs/") {
-					branch = "refs/heads/" + event.Branch
-				} else {
-					branch = event.Branch
+			eventBranch = event.Branch
+			// For non-basic_ci_all tasks, also use event branch for Azure DevOps branch
+			if task.TaskName != "basic_ci_all" && task.TaskName != "deployment_deployment" {
+				if event.Branch != "" {
+					if !strings.HasPrefix(event.Branch, "refs/") {
+						branch = "refs/heads/" + event.Branch
+					} else {
+						branch = event.Branch
+					}
+					log.Printf("[TaskExecutionService] Using branch from event: %s", branch)
 				}
-				log.Printf("[TaskExecutionService] Using branch from event: %s", branch)
 			}
 		} else {
 			log.Printf("[TaskExecutionService] Failed to get event, using default branch: %v", err)
@@ -117,7 +122,27 @@ func (s *TaskExecutionService) ExecuteTask(ctx context.Context, task *models.Tas
 	// Prepare pipeline parameters
 	var params map[string]interface{}
 	if resource.PipelineParams != nil {
-		params = resource.PipelineParams
+		// Make a copy to avoid modifying the original
+		params = make(map[string]interface{})
+		for k, v := range resource.PipelineParams {
+			params[k] = v
+		}
+	}
+
+	// For basic_ci_all task, replace SOURCE_CODE_BRANCH with event's real branch
+	if task.TaskName == "basic_ci_all" && eventBranch != "" {
+		if params == nil {
+			params = make(map[string]interface{})
+		}
+		params["SOURCE_CODE_BRANCH"] = eventBranch
+		log.Printf("[TaskExecutionService] Replaced SOURCE_CODE_BRANCH with event branch: %s", eventBranch)
+	}
+
+	// For deployment_deployment task, override pipeline params with testbed info
+	if task.TaskName == "deployment_deployment" {
+		params = s.buildDeploymentPipelineParams(task)
+		log.Printf("[TaskExecutionService] Using deployment pipeline params: chart_url_1=%s, host=%s, ssh_user=%s",
+			task.ChartURL, task.TestbedIP, task.SSHUser)
 	}
 
 	// Run the pipeline
@@ -514,10 +539,10 @@ func (s *TaskExecutionService) FetchAndAnalyzeLogs(ctx context.Context, task *mo
 		}
 	}
 
-	log.Printf("[TaskExecutionService] Analyzing logs from directory: %s", logDirPath)
+	log.Printf("[TaskExecutionService] Analyzing logs from directory: %s for task: %s", logDirPath, task.TaskName)
 
-	// Analyze all log files in the directory
-	results, err := s.logAnalyzer.AnalyzeLogDirectory(logDirPath)
+	// Analyze all log files in the directory, using task-specific prompt
+	results, err := s.logAnalyzer.AnalyzeLogDirectory(logDirPath, task.TaskName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze logs: %w", err)
 	}
@@ -587,3 +612,44 @@ func (s *TaskExecutionService) CleanupOldLogs() error {
 	return nil
 }
 
+// buildDeploymentPipelineParams 构建 deployment 任务的流水线参数
+// 使用 task 中保存的 Testbed 信息（IP、SSH 用户名、密码）和 Chart URL
+func (s *TaskExecutionService) buildDeploymentPipelineParams(task *models.Task) map[string]interface{} {
+	log.Printf("[buildDeploymentPipelineParams] TaskID=%d, ChartURL='%s', TestbedIP='%s', SSHUser='%s', SSHPassword='%s'",
+		task.ID, task.ChartURL, task.TestbedIP, task.SSHUser, task.SSHPassword)
+
+	chartURL := task.ChartURL
+	if chartURL == "" {
+		chartURL = "to_be_replace_chart"
+		log.Printf("[buildDeploymentPipelineParams] WARNING: ChartURL is empty, using default")
+	}
+
+	host := task.TestbedIP
+	if host == "" {
+		host = "to_be_replace_host"
+		log.Printf("[buildDeploymentPipelineParams] WARNING: TestbedIP is empty, using default")
+	}
+
+	sshUser := task.SSHUser
+	if sshUser == "" {
+		sshUser = "to_be_replace_ssh_user"
+		log.Printf("[buildDeploymentPipelineParams] WARNING: SSHUser is empty, using default")
+	}
+
+	sshPassword := task.SSHPassword
+	if sshPassword == "" {
+		sshPassword = "to_be_replace_ssh_password"
+		log.Printf("[buildDeploymentPipelineParams] WARNING: SSHPassword is empty, using default")
+	}
+
+	return map[string]interface{}{
+		"chart_url_1":         chartURL,
+		"chart_url_2":         "-",
+		"chart_url_3":         "-",
+		"enable_full_deploy":  "False",
+		"enable_helm_upgrade": "True",
+		"host":                host,
+		"ssh_user":            sshUser,
+		"ssh_password":        sshPassword,
+	}
+}

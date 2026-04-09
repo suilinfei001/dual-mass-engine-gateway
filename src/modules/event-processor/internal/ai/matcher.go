@@ -21,16 +21,35 @@ var (
 	ErrAINotConfigured = errors.New("AI_NOT_CONFIGURED")
 )
 
-// AIClient is a generic AI client for making API calls
+type AIConfigProvider interface {
+	GetAIConfig() (*storage.AIConfig, error)
+}
+
+type aiConfigAdapter struct {
+	*storage.MySQLConfigStorage
+}
+
+func (a *aiConfigAdapter) GetAIConfig() (*storage.AIConfig, error) {
+	return a.MySQLConfigStorage.GetAIConfig()
+}
+
 type AIClient struct {
-	configStorage *storage.MySQLConfigStorage
+	configStorage AIConfigProvider
 	client        *http.Client
 }
 
-// NewAIClient creates a new AI client
 func NewAIClient(configStorage *storage.MySQLConfigStorage) *AIClient {
 	return &AIClient{
-		configStorage: configStorage,
+		configStorage: &aiConfigAdapter{configStorage},
+		client: &http.Client{
+			Timeout: 120 * time.Second,
+		},
+	}
+}
+
+func NewAIClientWithProvider(provider AIConfigProvider) *AIClient {
+	return &AIClient{
+		configStorage: provider,
 		client: &http.Client{
 			Timeout: 120 * time.Second,
 		},
@@ -148,31 +167,35 @@ func (c *AIClient) Chat(req *ChatRequest) (*ChatResponse, error) {
 	}, nil
 }
 
-// AIMatcher handles resource matching using AI
 type AIMatcher struct {
 	aiClient *AIClient
 }
 
-// NewAIMatcher creates a new AI matcher
 func NewAIMatcher(configStorage *storage.MySQLConfigStorage) *AIMatcher {
 	return &AIMatcher{
 		aiClient: NewAIClient(configStorage),
 	}
 }
 
+func NewAIMatcherWithProvider(provider AIConfigProvider) *AIMatcher {
+	return &AIMatcher{
+		aiClient: NewAIClientWithProvider(provider),
+	}
+}
+
 type MatchRequest struct {
-	TaskName      string                       `json:"task_name"`
-	EventDetail   map[string]interface{}       `json:"event_detail"`
-	Resources     []*models.ExecutableResource `json:"resources"`
-	SystemPrompt  string                       `json:"system_prompt"`
+	TaskName     string                       `json:"task_name"`
+	EventDetail  map[string]interface{}       `json:"event_detail"`
+	Resources    []*models.ExecutableResource `json:"resources"`
+	SystemPrompt string                       `json:"system_prompt"`
 }
 
 type MatchResult struct {
-	ResourceID   int    `json:"resource_id"`
-	ResourceName string `json:"resource_name"`
-	RequestURL   string `json:"request_url"`
+	ResourceID   int     `json:"resource_id"`
+	ResourceName string  `json:"resource_name"`
+	RequestURL   string  `json:"request_url"`
 	Confidence   float64 `json:"confidence"`
-	Reasoning    string `json:"reasoning"`
+	Reasoning    string  `json:"reasoning"`
 }
 
 func (m *AIMatcher) MatchResource(req *MatchRequest) (*MatchResult, error) {
@@ -352,4 +375,3 @@ func (m *AIMatcher) buildUserQuery(req *MatchRequest) string {
 func (m *AIMatcher) GetDefaultSystemPrompt() string {
 	return prompt.GetResourceMatcherSystemPrompt()
 }
-

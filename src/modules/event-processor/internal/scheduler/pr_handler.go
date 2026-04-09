@@ -69,6 +69,16 @@ func (h *PRHandler) handlePROpened(event *api.Event) error {
 	existingTasks, err := h.scheduler.GetTasksByEventID(event.ID)
 	if err == nil && len(existingTasks) > 0 {
 		log.Printf("Tasks already exist for PR event %d, skipping", event.ID)
+		// 检查已有任务中是否有 no_resource 状态的任务，如果有则更新事件状态
+		for _, t := range existingTasks {
+			if t.Status == models.TaskStatusNoResource {
+				log.Printf("[handlePROpened] Found existing no_resource task %d for event %d, calling CompleteTask to update event status", t.ID, event.ID)
+				if completeErr := h.scheduler.CompleteTask(t, nil); completeErr != nil {
+					log.Printf("[handlePROpened] Failed to complete no_resource task: %v", completeErr)
+				}
+				return nil
+			}
+		}
 		return nil
 	}
 
@@ -78,6 +88,13 @@ func (h *PRHandler) handlePROpened(event *api.Event) error {
 		if task != nil {
 			if createErr := h.scheduler.storage.CreateTask(task); createErr != nil {
 				log.Printf("Failed to save failed task: %v", createErr)
+			}
+			// 如果任务状态是 no_resource，需要调用 CompleteTask 来更新事件状态和 quality checks
+			if task.Status == models.TaskStatusNoResource {
+				log.Printf("[handlePROpened] Task %d created with no_resource status, calling CompleteTask to update event status", task.ID)
+				if completeErr := h.scheduler.CompleteTask(task, nil); completeErr != nil {
+					log.Printf("[handlePROpened] Failed to complete no_resource task: %v", completeErr)
+				}
 			}
 		}
 		return nil
@@ -131,6 +148,17 @@ func (h *PRHandler) handlePRSynchronize(event *api.Event) error {
 			if err != nil || len(existingTasks) == 0 {
 				task, err := h.creator.CreateFirstTask(event)
 				if err != nil {
+					// 如果任务状态是 no_resource，需要保存任务并调用 CompleteTask
+					if task != nil && task.Status == models.TaskStatusNoResource {
+						if createErr := h.scheduler.storage.CreateTask(task); createErr != nil {
+							log.Printf("[handlePRSynchronize] Failed to save no_resource task: %v", createErr)
+						}
+						log.Printf("[handlePRSynchronize] Task %d created with no_resource status, calling CompleteTask to update event status", task.ID)
+						if completeErr := h.scheduler.CompleteTask(task, nil); completeErr != nil {
+							log.Printf("[handlePRSynchronize] Failed to complete no-resource task: %v", completeErr)
+						}
+						return nil
+					}
 					return err
 				}
 				return h.scheduler.storage.CreateTask(task)
@@ -245,37 +273,49 @@ func (h *PRHandler) completeEvent(event *api.Event) error {
 }
 
 func (h *PRHandler) cancelEvent(event *api.Event) error {
+	log.Printf("[cancelEvent] Starting cancellation for event %d (event_id=%s, current_status=%s)",
+		event.ID, event.EventID, event.EventStatus)
+
 	tasks, err := h.scheduler.storage.GetTasksByEventID(event.ID)
 	if err != nil {
-		return err
-	}
+		log.Printf("[cancelEvent] Failed to get tasks for event %d: %v", event.ID, err)
+		// 即使获取任务失败，也尝试更新事件状态
+	} else {
+		log.Printf("[cancelEvent] Found %d tasks for event %d", len(tasks), event.ID)
 
-	for _, task := range tasks {
-		if task.Status == models.TaskStatusRunning {
-			// Cancellation now handled through TaskExecutionService using BuildID
-			if task.BuildID > 0 {
-				log.Printf("Task %d has build_id=%d, will be cancelled by executor service", task.ID, task.BuildID)
-			}
+		for _, task := range tasks {
+			log.Printf("[cancelEvent] Task %d: status=%s, task_name=%s", task.ID, task.Status, task.TaskName)
+			if task.Status == models.TaskStatusRunning {
+				// Cancellation now handled through TaskExecutionService using BuildID
+				if task.BuildID > 0 {
+					log.Printf("Task %d has build_id=%d, will be cancelled by executor service", task.ID, task.BuildID)
+				}
 
-			if err := h.scheduler.CancelTask(task, "PR synchronized with newer commit"); err != nil {
-				log.Printf("Failed to cancel running task %d: %v", task.ID, err)
+				if err := h.scheduler.CancelTask(task, "PR synchronized with newer commit"); err != nil {
+					log.Printf("Failed to cancel running task %d: %v", task.ID, err)
+				} else {
+					log.Printf("Cancelled running task %d for event %d", task.ID, event.ID)
+				}
+			} else if task.Status == models.TaskStatusPending {
+				if err := h.scheduler.CancelTask(task, "PR synchronized with newer commit"); err != nil {
+					log.Printf("Failed to cancel pending task %d: %v", task.ID, err)
+				} else {
+					log.Printf("Cancelled pending task %d for event %d", task.ID, event.ID)
+				}
 			} else {
-				log.Printf("Cancelled running task %d for event %d", task.ID, event.ID)
-			}
-		} else if task.Status == models.TaskStatusPending {
-			if err := h.scheduler.CancelTask(task, "PR synchronized with newer commit"); err != nil {
-				log.Printf("Failed to cancel pending task %d: %v", task.ID, err)
-			} else {
-				log.Printf("Cancelled pending task %d for event %d", task.ID, event.ID)
+				log.Printf("[cancelEvent] Task %d already in terminal state: %s, skipping cancellation", task.ID, task.Status)
 			}
 		}
 	}
 
 	now := time.Now()
+	log.Printf("[cancelEvent] Updating event %d status to 'cancelled'", event.ID)
 	if err := h.client.UpdateEventStatus(event.ID, "cancelled", now.Format(time.RFC3339)); err != nil {
-		log.Printf("Failed to update event status to cancelled: %v", err)
+		log.Printf("[cancelEvent] ERROR: Failed to update event status to cancelled for event %d: %v", event.ID, err)
+		return err
 	}
 
+	log.Printf("[cancelEvent] Successfully updated event %d status to 'cancelled'", event.ID)
 	return nil
 }
 

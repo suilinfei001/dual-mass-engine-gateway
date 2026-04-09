@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -65,22 +66,22 @@ type Event struct {
 
 // QualityCheck 质量检查项
 type QualityCheck struct {
-	ID             int     `json:"id"`
-	GitHubEventID string  `json:"github_event_id"`
-	CheckType      string  `json:"check_type"`
-	CheckStatus    string  `json:"check_status"`
-	Stage          string  `json:"stage"`
-	StageOrder     int     `json:"stage_order"`
-	CheckOrder     int     `json:"check_order"`
-	StartedAt      string  `json:"started_at,omitempty"`
-	CompletedAt    string  `json:"completed_at,omitempty"`
+	ID              int      `json:"id"`
+	GitHubEventID   string   `json:"github_event_id"`
+	CheckType       string   `json:"check_type"`
+	CheckStatus     string   `json:"check_status"`
+	Stage           string   `json:"stage"`
+	StageOrder      int      `json:"stage_order"`
+	CheckOrder      int      `json:"check_order"`
+	StartedAt       string   `json:"started_at,omitempty"`
+	CompletedAt     string   `json:"completed_at,omitempty"`
 	DurationSeconds *float64 `json:"duration_seconds,omitempty"`
-	ErrorMessage  *string  `json:"error_message,omitempty"`
-	Output         *string  `json:"output,omitempty"`
-	Extra          *string `json:"extra,omitempty"` // 额外信息（JSON字符串）
-	RetryCount     int     `json:"retry_count"`
-	CreatedAt      string  `json:"created_at"`
-	UpdatedAt      string  `json:"updated_at"`
+	ErrorMessage    *string  `json:"error_message,omitempty"`
+	Output          *string  `json:"output,omitempty"`
+	Extra           *string  `json:"extra,omitempty"` // 额外信息（JSON字符串）
+	RetryCount      int      `json:"retry_count"`
+	CreatedAt       string   `json:"created_at"`
+	UpdatedAt       string   `json:"updated_at"`
 }
 
 // APIResponse API 响应结构
@@ -192,13 +193,13 @@ func (c *Client) BatchUpdateQualityChecks(eventID int, checks []QualityCheckUpda
 // QualityCheckUpdate 质量检查更新
 type QualityCheckUpdate struct {
 	ID           int     `json:"id"`
-	CheckStatus   string  `json:"check_status,omitempty"`
-	StartedAt     string  `json:"started_at,omitempty"`
-	CompletedAt    string  `json:"completed_at,omitempty"`
-	Duration      float64 `json:"duration_seconds,omitempty"`
-	ErrorMessage  string  `json:"error_message,omitempty"`
-	Output        string  `json:"output,omitempty"`
-	Extra         string  `json:"extra,omitempty"` // 额外信息（JSON字符串）
+	CheckStatus  string  `json:"check_status,omitempty"`
+	StartedAt    string  `json:"started_at,omitempty"`
+	CompletedAt  string  `json:"completed_at,omitempty"`
+	Duration     float64 `json:"duration_seconds,omitempty"`
+	ErrorMessage string  `json:"error_message,omitempty"`
+	Output       string  `json:"output,omitempty"`
+	Extra        string  `json:"extra,omitempty"` // 额外信息（JSON字符串）
 }
 
 // putJSON 发送 PUT 请求
@@ -221,6 +222,167 @@ func (c *Client) putJSON(path string, payload interface{}) error {
 	}
 
 	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+const (
+	ResourcePoolAPI = "http://resource-pool-server:5003"
+)
+
+type ResourcePoolClient struct {
+	BaseURL    string
+	HTTPClient *http.Client
+}
+
+func NewResourcePoolClient() *ResourcePoolClient {
+	return &ResourcePoolClient{
+		BaseURL: ResourcePoolAPI,
+		HTTPClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}
+}
+
+type AcquireTestbedRequest struct {
+	CategoryUUID string `json:"category_uuid"`
+	Requester    string `json:"requester"`
+}
+
+type AcquireTestbedResponse struct {
+	AllocationUUID string       `json:"uuid"`
+	Testbed        *TestbedInfo `json:"testbed"`
+}
+
+type TestbedInfo struct {
+	UUID        string `json:"uuid"`
+	IPAddress   string `json:"ip_address"`
+	SSHUser     string `json:"ssh_user"`
+	SSHPassword string `json:"ssh_password"`
+}
+
+type AllocationInfo struct {
+	UUID string `json:"uuid"`
+}
+
+type CategoryInfo struct {
+	UUID      string `json:"uuid"`
+	Name      string `json:"name"`
+	Owner     string `json:"owner"`
+	Enabled   bool   `json:"enabled"`
+	CreatedAt string `json:"created_at"`
+}
+
+func (c *ResourcePoolClient) GetCategories() ([]CategoryInfo, error) {
+	resp, err := c.HTTPClient.Get(c.BaseURL + "/external/categories")
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var categories []CategoryInfo
+	if err := json.NewDecoder(resp.Body).Decode(&categories); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return categories, nil
+}
+
+func (c *ResourcePoolClient) AcquireTestbed(categoryUUID, requester string) (*AcquireTestbedResponse, error) {
+	req := AcquireTestbedRequest{
+		CategoryUUID: categoryUUID,
+		Requester:    requester,
+	}
+
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest("POST", c.BaseURL+"/external/testbeds/acquire", bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result AcquireTestbedResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}
+
+func (c *ResourcePoolClient) AcquireRobotTestbed() (*AcquireTestbedResponse, error) {
+	httpReq, err := http.NewRequest("POST", c.BaseURL+"/internal/testbeds/acquire-robot", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	type RobotTestbedResponse struct {
+		Success    bool           `json:"success"`
+		Allocation AllocationInfo `json:"allocation"`
+		Testbed    *TestbedInfo   `json:"testbed"`
+	}
+
+	var result RobotTestbedResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	log.Printf("[AcquireRobotTestbed] Response: allocation_uuid=%s, testbed_uuid=%s",
+		result.Allocation.UUID, result.Testbed.UUID)
+
+	return &AcquireTestbedResponse{
+		AllocationUUID: result.Allocation.UUID,
+		Testbed:        result.Testbed,
+	}, nil
+}
+
+func (c *ResourcePoolClient) ReleaseTestbed(allocationUUID string) error {
+	httpReq, err := http.NewRequest("POST", c.BaseURL+"/internal/testbeds/"+allocationUUID+"/release", nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}

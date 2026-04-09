@@ -1,0 +1,30 @@
+{
+  "valid_user": {
+    "username": "Yabo.sui",
+    "password": "eisoo.com123",
+    "description": "有效用户账号，用于正常登录测试"
+  },
+  "invalid_users": [
+    {
+      "scenario": "username_not_exist",
+      "username": "testuser",
+      "password": "eisoo.com123",
+      "description": "用户名不存在场景",
+      "expected_error": "用户名或密码错误"
+    },
+    {
+      "scenario": "password_wrong",
+      "username": "Yabo.sui",
+      "password": "eisoo.com1234",
+      "description": "密码错误场景",
+      "expected_error": "用户名或密码错误"
+    }
+  ],
+  "test_accounts": {
+    "admin": {
+      "username": "admin",
+      "password": "admin123",
+      "description": "管理员账号（如需要）"
+    }
+  }
+}

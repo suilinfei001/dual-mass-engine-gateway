@@ -14,14 +14,15 @@ import (
 )
 
 type SchedulerWithStorage struct {
-	client          *api.Client
-	creator         *TaskCreator
-	storage         storage.TaskStorage
-	resourceStorage storage.ResourceStorage
-	aiMatcher       AIMatcherInterface
-	prHandler       *PRHandler
-	eventCache      map[int]*api.Event
-	eventCacheMu    sync.RWMutex
+	client             *api.Client
+	creator            *TaskCreator
+	storage            storage.TaskStorage
+	resourceStorage    storage.ResourceStorage
+	aiMatcher          AIMatcherInterface
+	prHandler          *PRHandler
+	eventCache         map[int]*api.Event
+	eventCacheMu       sync.RWMutex
+	resourcePoolClient *api.ResourcePoolClient
 }
 
 func NewSchedulerWithStorage(
@@ -31,12 +32,13 @@ func NewSchedulerWithStorage(
 	aiMatcher AIMatcherInterface,
 ) *SchedulerWithStorage {
 	s := &SchedulerWithStorage{
-		client:          client,
-		creator:         NewTaskCreator(client, store, resourceStorage, aiMatcher),
-		storage:         store,
-		resourceStorage: resourceStorage,
-		aiMatcher:       aiMatcher,
-		eventCache:      make(map[int]*api.Event),
+		client:             client,
+		creator:            NewTaskCreator(client, store, resourceStorage, aiMatcher),
+		storage:            store,
+		resourceStorage:    resourceStorage,
+		aiMatcher:          aiMatcher,
+		eventCache:         make(map[int]*api.Event),
+		resourcePoolClient: api.NewResourcePoolClient(),
 	}
 	s.prHandler = NewPRHandler(client, s.creator, s)
 	return s
@@ -132,6 +134,84 @@ func (s *SchedulerWithStorage) ProcessEvents(events []api.Event) error {
 			log.Printf("Task %s for event %d is in no-resource status, calling CompleteTask directly", task.TaskName, event.ID)
 			if err := s.CompleteTask(task, nil); err != nil {
 				log.Printf("Failed to complete no-resource task %s for event %d: %v", task.TaskName, event.ID, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *SchedulerWithStorage) AcquireTestbedForDeployment(task *models.Task) error {
+	if task.TaskName != "deployment_deployment" {
+		return nil
+	}
+
+	log.Printf("[AcquireTestbed] Attempting to acquire robot testbed for deployment task (event_id=%d)", task.EventID)
+
+	resp, err := s.resourcePoolClient.AcquireRobotTestbed()
+	if err != nil {
+		return fmt.Errorf("failed to acquire testbed: %w", err)
+	}
+
+	if resp.Testbed == nil {
+		return fmt.Errorf("no testbed returned from resource pool")
+	}
+
+	task.TestbedUUID = resp.Testbed.UUID
+	task.TestbedIP = resp.Testbed.IPAddress
+	task.SSHUser = resp.Testbed.SSHUser
+	task.SSHPassword = resp.Testbed.SSHPassword
+	task.AllocationUUID = resp.AllocationUUID
+
+	log.Printf("[AcquireTestbed] Response - TestbedUUID: %s, AllocationUUID: %s, IP: %s",
+		resp.Testbed.UUID, resp.AllocationUUID, resp.Testbed.IPAddress)
+
+	if err := s.storage.UpdateTask(task); err != nil {
+		return fmt.Errorf("failed to update task with testbed info: %w", err)
+	}
+
+	log.Printf("[AcquireTestbed] Successfully acquired testbed %s for task %s (event_id=%d)",
+		resp.Testbed.UUID, task.TaskName, task.EventID)
+
+	return nil
+}
+
+func (s *SchedulerWithStorage) ReleaseTestbed(task *models.Task) error {
+	if task.TestbedUUID == "" && task.AllocationUUID == "" {
+		log.Printf("[ReleaseTestbed] No testbed to release (both testbed_uuid and allocation_uuid are empty)")
+		return nil
+	}
+
+	log.Printf("[ReleaseTestbed] Releasing testbed (testbed_uuid=%s, allocation_uuid=%s) for task %s (event_id=%d)",
+		task.TestbedUUID, task.AllocationUUID, task.TaskName, task.EventID)
+
+	// Use allocation_uuid if available, otherwise fall back to testbed_uuid
+	releaseUUID := task.AllocationUUID
+	if releaseUUID == "" {
+		releaseUUID = task.TestbedUUID
+		log.Printf("[ReleaseTestbed] WARNING: allocation_uuid is empty, using testbed_uuid: %s", releaseUUID)
+	}
+
+	if err := s.resourcePoolClient.ReleaseTestbed(releaseUUID); err != nil {
+		log.Printf("[ReleaseTestbed] Failed to release testbed %s: %v", releaseUUID, err)
+		return fmt.Errorf("failed to release testbed: %w", err)
+	}
+
+	log.Printf("[ReleaseTestbed] Successfully released testbed %s", task.TestbedUUID)
+	return nil
+}
+
+func (s *SchedulerWithStorage) ReleaseTestbedByEventID(eventID int) error {
+	tasks, err := s.storage.GetTasksByEventID(eventID)
+	if err != nil {
+		return fmt.Errorf("failed to get tasks for event %d: %w", eventID, err)
+	}
+
+	for _, task := range tasks {
+		if task.TestbedUUID != "" {
+			if err := s.ReleaseTestbed(task); err != nil {
+				log.Printf("[ReleaseTestbedByEventID] Failed to release testbed for task %s: %v",
+					task.TaskName, err)
 			}
 		}
 	}
@@ -283,8 +363,18 @@ func (s *SchedulerWithStorage) CompleteTask(task *models.Task, results []models.
 		}
 	}
 
-	// 当 Task 状态是 no-resource 时，不更新 quality checks 状态
-	if task.Status != models.TaskStatusNoResource {
+	// 更新 quality checks 状态
+	if task.Status == models.TaskStatusNoResource {
+		log.Printf("Task is in no-resource status, updating quality checks as failed: %s (event_id=%d)", task.TaskName, task.EventID)
+		if err := s.updateQualityChecksForNoResource(task); err != nil {
+			// If Event Receiver is not configured, log a more helpful message
+			if s.client.BaseURL == "" {
+				log.Printf("[ERROR] Event Receiver IP is not configured! Please configure it in the admin console. Quality checks will NOT be updated.")
+			} else {
+				log.Printf("Failed to update quality checks for no-resource task: %v", err)
+			}
+		}
+	} else {
 		log.Printf("Updating quality checks for task: %s (event_id=%d)", task.TaskName, task.EventID)
 		if err := s.updateQualityChecks(task, results); err != nil {
 			// If Event Receiver is not configured, log a more helpful message
@@ -294,48 +384,55 @@ func (s *SchedulerWithStorage) CompleteTask(task *models.Task, results []models.
 				log.Printf("Failed to update quality checks: %v", err)
 			}
 		}
-	} else {
-		log.Printf("Task is in no-resource status, SKIPPING quality checks update: %s (event_id=%d)", task.TaskName, task.EventID)
 	}
 
 	shouldCreateNext := s.creator.ShouldCreateNextTask(task.EventID, task)
 	isLastTask := s.creator.IsLastTask(task.ExecuteOrder)
 	log.Printf("CompleteTask: shouldCreateNext=%v, isLastTask=%v, task_status=%s", shouldCreateNext, isLastTask, task.Status)
 
-	// 处理失败的任务：立即标记事件为失败
-	if task.Status == models.TaskStatusFailed {
+	// 处理失败或无资源的任务：立即标记事件为失败
+	// no_resource 状态也需要更新事件状态，否则 event-receiver 看不到失败原因
+	if task.Status == models.TaskStatusFailed || task.Status == models.TaskStatusNoResource {
 		now := time.Now()
 		if err := s.client.UpdateEventStatus(task.EventID, "failed", now.Format(time.RFC3339)); err != nil {
 			log.Printf("Failed to update event status to failed: %v", err)
 		} else {
-			log.Printf("Event %d marked as failed due to failed task %s", task.EventID, task.TaskName)
+			log.Printf("Event %d marked as failed due to task %s (status=%s)", task.EventID, task.TaskName, task.Status)
+		}
+		// 释放 Testbed
+		if err := s.ReleaseTestbed(task); err != nil {
+			log.Printf("Failed to release testbed: %v", err)
 		}
 		return nil
 	}
 
 	if shouldCreateNext {
 		event := s.GetEventFromCache(task.EventID)
-		nextTask, err := s.creator.CreateNextTask(task.EventID, task.ExecuteOrder, event)
+		nextTask, err := s.creator.CreateNextTask(task.EventID, task.ExecuteOrder, event, task)
 		if err != nil {
 			log.Printf("Failed to create next task: %v", err)
 		} else if nextTask != nil {
+			log.Printf("[CompleteTaskWithSuccess] Created next task: taskID=%d, taskName=%s, ChartURL=%s, TestbedIP=%s",
+				nextTask.ID, nextTask.TaskName, nextTask.ChartURL, nextTask.TestbedIP)
 			if err := s.storage.CreateTask(nextTask); err != nil {
 				log.Printf("Failed to save next task to database: %v", err)
 			} else {
+				log.Printf("[CompleteTaskWithSuccess] Saved to DB: taskID=%d, ChartURL='%s'", nextTask.ID, nextTask.ChartURL)
 				log.Printf("Created next task %s for event %d", nextTask.TaskName, task.EventID)
 			}
 		}
 	} else if isLastTask {
-		// 最后一个任务完成，更新事件状态
-		if task.Status != models.TaskStatusNoResource {
-			now := time.Now()
-			if err := s.client.UpdateEventStatus(task.EventID, "completed", now.Format(time.RFC3339)); err != nil {
-				log.Printf("Failed to update event status to completed: %v", err)
-			} else {
-				log.Printf("Event %d completed successfully", task.EventID)
-			}
+		// 最后一个任务完成，更新事件状态为 completed
+		// 注意：no_resource 和 failed 状态已在前面处理，不会到达这里
+		now := time.Now()
+		if err := s.client.UpdateEventStatus(task.EventID, "completed", now.Format(time.RFC3339)); err != nil {
+			log.Printf("Failed to update event status to completed: %v", err)
 		} else {
-			log.Printf("Task %s for event %d is in no-resource status, skipping event status update", task.TaskName, task.EventID)
+			log.Printf("Event %d completed successfully", task.EventID)
+		}
+		// 整个流程结束，释放 Testbed
+		if err := s.ReleaseTestbed(task); err != nil {
+			log.Printf("Failed to release testbed: %v", err)
 		}
 	}
 
@@ -351,6 +448,11 @@ func (s *SchedulerWithStorage) FailTask(task *models.Task, reason string) error 
 
 	if err := s.updateQualityChecksForFailure(task); err != nil {
 		log.Printf("Failed to update quality checks: %v", err)
+	}
+
+	// 释放 Testbed（如果是 deployment 任务）
+	if err := s.ReleaseTestbed(task); err != nil {
+		log.Printf("Failed to release testbed: %v", err)
 	}
 
 	now := time.Now()
@@ -372,6 +474,11 @@ func (s *SchedulerWithStorage) CancelTask(task *models.Task, reason string) erro
 
 	if err := s.updateQualityChecksForCancelled(task); err != nil {
 		log.Printf("Failed to update quality checks: %v", err)
+	}
+
+	// 释放 Testbed（如果是 deployment 任务）
+	if err := s.ReleaseTestbed(task); err != nil {
+		log.Printf("Failed to release testbed: %v", err)
 	}
 
 	return nil
@@ -423,7 +530,7 @@ func (s *SchedulerWithStorage) SkipTask(task *models.Task, reason string) error 
 
 	if s.creator.ShouldCreateNextTask(task.EventID, task) {
 		event := s.GetEventFromCache(task.EventID)
-		nextTask, err := s.creator.CreateNextTask(task.EventID, task.ExecuteOrder, event)
+		nextTask, err := s.creator.CreateNextTask(task.EventID, task.ExecuteOrder, event, task)
 		if err != nil {
 			log.Printf("Failed to create next task: %v", err)
 		} else if nextTask != nil {
@@ -445,6 +552,11 @@ func (s *SchedulerWithStorage) SkipTask(task *models.Task, reason string) error 
 				log.Printf("Failed to update event status to completed: %v", err)
 			}
 		}
+	}
+
+	// 释放 Testbed（如果是 deployment 任务）
+	if err := s.ReleaseTestbed(task); err != nil {
+		log.Printf("Failed to release testbed: %v", err)
 	}
 
 	return nil
@@ -585,7 +697,6 @@ func (s *SchedulerWithStorage) updateBasicCIChecks(task *models.Task, results []
 }
 
 func (s *SchedulerWithStorage) updateQualityChecksForFailure(task *models.Task) error {
-	// 总是获取最新的事件信息，而不是依赖缓存
 	event, err := s.refreshEventCache(task.EventID)
 	if err != nil {
 		return fmt.Errorf("event not found in cache and failed to refresh: %w", err)
@@ -600,7 +711,7 @@ func (s *SchedulerWithStorage) updateQualityChecksForFailure(task *models.Task) 
 	}
 
 	for _, check := range event.QualityChecks {
-		if check.Stage == task.Stage && check.CheckStatus == "pending" {
+		if check.Stage == task.Stage && (check.CheckStatus == "pending" || check.CheckStatus == "running") {
 			updates = append(updates, api.QualityCheckUpdate{
 				ID:           check.ID,
 				CheckStatus:  "failed",
@@ -681,6 +792,10 @@ func (s *SchedulerWithStorage) GetTasksByEventID(eventID int) ([]*models.Task, e
 	return s.storage.GetTasksByEventID(eventID)
 }
 
+func (s *SchedulerWithStorage) GetTaskByID(id int) (*models.Task, error) {
+	return s.storage.GetTask(id)
+}
+
 func (s *SchedulerWithStorage) GetLatestTaskByEventID(eventID int) (*models.Task, error) {
 	return s.storage.GetLatestTaskByEventID(eventID)
 }
@@ -757,10 +872,10 @@ func (s *SchedulerWithStorage) updateQualityChecksForSkipped(task *models.Task, 
 				check.ID, check.CheckType, check.Stage, check.CheckStatus)
 			if check.Stage == "basic_ci" && (check.CheckStatus == "pending" || check.CheckStatus == "running") {
 				updates = append(updates, api.QualityCheckUpdate{
-					ID:           check.ID,
-					CheckStatus:  "skipped",
-					CompletedAt:  now.Format(time.RFC3339),
-					Output:       reason,
+					ID:          check.ID,
+					CheckStatus: "skipped",
+					CompletedAt: now.Format(time.RFC3339),
+					Output:      reason,
 				})
 				log.Printf("[updateQualityChecksForSkipped] adding update for check id=%d", check.ID)
 			}
@@ -772,10 +887,10 @@ func (s *SchedulerWithStorage) updateQualityChecksForSkipped(task *models.Task, 
 				check.ID, check.CheckType, check.Stage, check.CheckStatus)
 			if check.Stage == "deployment" && (check.CheckStatus == "pending" || check.CheckStatus == "running") {
 				updates = append(updates, api.QualityCheckUpdate{
-					ID:           check.ID,
-					CheckStatus:  "skipped",
-					CompletedAt:  now.Format(time.RFC3339),
-					Output:       reason,
+					ID:          check.ID,
+					CheckStatus: "skipped",
+					CompletedAt: now.Format(time.RFC3339),
+					Output:      reason,
 				})
 				log.Printf("[updateQualityChecksForSkipped] adding update for check id=%d", check.ID)
 			}
@@ -788,10 +903,10 @@ func (s *SchedulerWithStorage) updateQualityChecksForSkipped(task *models.Task, 
 				check.ID, check.CheckType, check.CheckStatus)
 			if check.CheckType == task.CheckType && (check.CheckStatus == "pending" || check.CheckStatus == "running") {
 				updates = append(updates, api.QualityCheckUpdate{
-					ID:           check.ID,
-					CheckStatus:  "skipped",
-					CompletedAt:  now.Format(time.RFC3339),
-					Output:       reason,
+					ID:          check.ID,
+					CheckStatus: "skipped",
+					CompletedAt: now.Format(time.RFC3339),
+					Output:      reason,
 				})
 				log.Printf("[updateQualityChecksForSkipped] adding update for check id=%d", check.ID)
 				break

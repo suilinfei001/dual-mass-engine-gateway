@@ -48,8 +48,23 @@ type AnalyzeLogsRequest struct {
 	LogContent string `json:"log_content"`
 }
 
-// GetLogAnalysisPrompt returns the system prompt for log analysis
-func (la *LogAnalyzer) GetLogAnalysisPrompt() string {
+// GetPromptByTaskName returns the appropriate prompt based on task name
+func (la *LogAnalyzer) GetPromptByTaskName(taskName string) string {
+	switch taskName {
+	case "deployment_deployment":
+		return la.GetDeploymentLogPrompt()
+	case "specialized_tests":
+		return la.GetSpecializedTestsLogPrompt()
+	case "basic_ci_all", "basic_ci":
+		return la.GetBuildLogPrompt()
+	default:
+		log.Printf("[LogAnalyzer] No specific prompt for task '%s', using default build log prompt", taskName)
+		return la.GetBuildLogPrompt()
+	}
+}
+
+// GetBuildLogPrompt returns the system prompt for build log analysis (basic_ci_all)
+func (la *LogAnalyzer) GetBuildLogPrompt() string {
 	return `## 角色
 
 你是一个专业的CI/CD构建日志解析助手，负责从构建日志中提取关键信息并输出结构化的JSON结果。
@@ -81,6 +96,13 @@ func (la *LogAnalyzer) GetLogAnalysisPrompt() string {
   - 如果日志中没有找到任何代码检查相关的任务执行记录，结果为 skipped，detail 为空字符串
   - 如果找到 sonarqube 或 lint 任务且执行成功，结果为 pass
   - 如果找到任务但执行失败，结果为 fail
+  - **重要**：Azure DevOps 流水线中的 "Publish Test Results" 任务输出是报告格式问题，不是代码检查失败，以下信息都不是真正的失败：
+    - "not available"、"Timestamp is not available"
+    - "It was not possible to find any installed .NET Core SDKs"
+    - "dotnet" 相关警告
+    - 任何关于 SDK 安装、测试报告格式的警告
+  - 判断 code_lint 结果时，应关注实际的 lint 任务执行结果，而非流水线任务发布格式
+  - **关键**：只有当日志中明确出现 lint 执行失败、代码检查未通过、静态分析报错等情况时才能判定为 fail
 
 ### security_scan
 - 识别关键词：trivy、security scan、vulnerability、CVE-、Total:、HIGH、CRITICAL、Scan Docker image
@@ -92,8 +114,19 @@ func (la *LogAnalyzer) GetLogAnalysisPrompt() string {
   - 重要：不要直接使用构建任务的状态（exit-code），要以实际漏洞检测结果为准
 
 ### unit_test
-- 识别关键词：test、TestResults、coverage、passed、failed
+- 识别关键词：test、TestResults、coverage、passed、failed、Quality Gate UT、Quality Gate Coverage
 - 提取信息：测试通过/失败状态、覆盖率分数
+- 特殊规则：
+  - **判断 pass/fail 的关键依据**：
+    - 如果日志中出现 "[SUCCESS]" 或 "policy passed"，结果为 pass
+    - 如果日志中出现 "[FAIL]" 或 "policy failed"，结果为 fail
+    - 如果日志中出现 "Code Coverage (%): X"，提取覆盖率分数到 score 字段
+  - **重要**：warning 不等于 fail！
+    - "Warnings policy passed with X warning(s)" 表示测试通过，结果是 pass
+    - "warning" 只是警告，不是失败
+    - 只有明确出现 "failed"、"error"、"FAIL" 才是失败
+  - 如果日志中没有单元测试相关的任务执行记录，结果为 skipped
+  - 如果找到覆盖率数据（如 "Code Coverage (%): 31.6167"），提取分数到 extra.score
 
 ## 输出格式
 
@@ -142,8 +175,159 @@ func (la *LogAnalyzer) GetLogAnalysisPrompt() string {
 4. 请直接输出JSON结果，不要使用代码块包裹`
 }
 
+// GetDeploymentLogPrompt returns the system prompt for deployment log analysis
+func (la *LogAnalyzer) GetDeploymentLogPrompt() string {
+	return `## 角色
+
+你是一个专业的CI/CD部署日志解析助手，负责从部署日志中提取关键信息并输出结构化的JSON结果。
+
+## 任务
+
+解析给定的部署日志内容，识别部署相关的检查项状态。
+
+## 日志识别规则
+
+### deployment
+- 识别关键词：helm install、helm upgrade、kubectl apply、deployment、deploy、Chart、tiller、namespace、pod、service、ingress
+- 提取信息：部署是否成功、release名称、namespace、部署的资源、错误信息
+- 特殊规则：
+  - 如果部署成功完成，结果为 pass
+  - 如果部署过程中出现错误（如 helm 失败、pod 创建失败、resource 超时等），结果为 fail，并在 detail 中列出错误详情
+  - 如果部署任务超时，结果为 timeout
+  - 如果部署任务被取消，结果为 cancelled
+  - 如果无法确定部署状态，结果为 unknown
+
+## 输出格式
+
+请严格按照以下JSON格式输出结果，不要添加任何额外内容：
+
+{"results":[
+    {
+        "check_type":"deployment",
+        "result":"pass/fail/timeout/cancelled/skipped/running/unknown",
+        "extra":{
+            "release":"",
+            "namespace":"",
+            "detail":""
+        }
+    }
+]}
+
+## 输出要求
+
+1. result 字段的取值范围：pass、fail、timeout、cancelled、skipped、running、unknown
+2. 只输出 JSON 内容，不要添加任何解释性文字
+3. 如果某项信息在日志中无法找到，使用空字符串
+4. 请直接输出JSON结果，不要使用代码块包裹`
+}
+
+// GetSpecializedTestsLogPrompt returns the system prompt for specialized tests log analysis
+func (la *LogAnalyzer) GetSpecializedTestsLogPrompt() string {
+	return `## 角色
+
+你是一个专业的CI/CD专业测试日志解析助手，负责从专业测试日志中提取关键信息并输出结构化的JSON结果。
+
+## 任务
+
+解析给定的专业测试日志内容，识别以下测试类型的检查项状态：
+
+1. api_test（API测试）：检查 API 接口测试、REST、GraphQL 等
+2. ui_test（UI测试）：检查前端界面测试、Selenium、Playwright 等
+3. e2e_test（端到端测试）：检查端到端业务流程测试
+4. performance_test（性能测试）：检查性能测试、压力测试、负载测试、响应时间等
+
+## 日志识别规则
+
+### api_test
+- 识别关键词：API test、REST、GraphQL、http、request、response、status code、curl、apifox、postman
+- 提取信息：API 测试是否通过、失败的接口、响应状态码
+- 特殊规则：
+  - 如果所有 API 测试通过，结果为 pass
+  - 如果有 API 测试失败，结果为 fail，并在 detail 中列出失败的 API 详情
+  - 如果没有执行 API 测试，结果为 skipped
+
+### ui_test
+- 识别关键词：UI test、Selenium、Playwright、Cypress、browser、click、element、DOM、screenshot
+- 提取信息：UI 测试是否通过、失败的页面/操作
+- 特殊规则：
+  - 如果所有 UI 测试通过，结果为 pass
+  - 如果有 UI 测试失败，结果为 fail，并在 detail 中列出失败的页面或操作
+  - 如果没有执行 UI 测试，结果为 skipped
+
+### e2e_test
+- 识别关键词：e2e、end-to-end、workflow、scenario、journey、user story
+- 提取信息：端到端测试是否通过、失败的流程/场景
+- 特殊规则：
+  - 如果所有端到端测试通过，结果为 pass
+  - 如果有测试失败，结果为 fail，并在 detail 中列出失败的场景
+  - 如果没有执行端到端测试，结果为 skipped
+
+### performance_test
+- 识别关键词：performance、load test、stress test、QPS、TPS、response time、latency、throughput、concurrency
+- 提取信息：性能测试是否通过、QPS/TPS、响应时间、并发数
+- 特殊规则：
+  - 如果性能指标达标，结果为 pass
+  - 如果性能指标不达标（如响应时间过长、QPS 不足），结果为 fail，并在 detail 中列出具体指标
+  - 如果没有执行性能测试，结果为 skipped
+
+## 输出格式
+
+请严格按照以下JSON格式输出结果，不要添加任何额外内容：
+
+{"results":[
+    {
+        "check_type":"api_test",
+        "result":"pass/fail/timeout/cancelled/skipped/running",
+        "extra":{
+            "detail":""
+        }
+    },
+    {
+        "check_type":"ui_test",
+        "result":"pass/fail/timeout/cancelled/skipped/running",
+        "extra":{
+            "detail":""
+        }
+    },
+    {
+        "check_type":"e2e_test",
+        "result":"pass/fail/timeout/cancelled/skipped/running",
+        "extra":{
+            "detail":""
+        }
+    },
+    {
+        "check_type":"performance_test",
+        "result":"pass/fail/timeout/cancelled/skipped/running",
+        "extra":{
+            "qps":0,
+            "tps":0,
+            "response_time":0,
+            "detail":""
+        }
+    }
+]}
+
+## 输出要求
+
+1. result 字段的取值范围：pass、fail、timeout、cancelled、skipped、running
+2. 只输出 JSON 内容，不要添加任何解释性文字
+3. 如果某项信息在日志中无法找到，使用空字符串（数字类型使用0）
+4. 请直接输出JSON结果，不要使用代码块包裹`
+}
+
+// GetLogAnalysisPrompt returns the system prompt for log analysis (deprecated, use GetPromptByTaskName)
+func (la *LogAnalyzer) GetLogAnalysisPrompt() string {
+	return la.GetBuildLogPrompt()
+}
+
 // AnalyzeLogs analyzes build logs using AI (deprecated, kept for backward compatibility)
 func (la *LogAnalyzer) AnalyzeLogs(logContent string) ([]models.TaskResult, error) {
+	return la.analyzeLogsWithPrompt(logContent, la.GetLogAnalysisPrompt())
+}
+
+// analyzeLogsWithPrompt analyzes logs using a specific prompt
+func (la *LogAnalyzer) analyzeLogsWithPrompt(logContent string, systemPrompt string) ([]models.TaskResult, error) {
 	originalSize := len(logContent)
 	log.Printf("[LogAnalyzer] Analyzing logs, original content length: %d", originalSize)
 
@@ -158,7 +342,7 @@ func (la *LogAnalyzer) AnalyzeLogs(logContent string) ([]models.TaskResult, erro
 	userPrompt := fmt.Sprintf("请解析以下构建日志并输出结果：\n\n%s", truncatedContent)
 
 	chatResp, err := la.aiClient.Chat(&ChatRequest{
-		SystemPrompt: la.GetLogAnalysisPrompt(),
+		SystemPrompt: systemPrompt,
 		UserPrompt:   userPrompt,
 		Temperature:  0.7,
 		MaxTokens:    10000,
@@ -181,8 +365,13 @@ func (la *LogAnalyzer) AnalyzeLogs(logContent string) ([]models.TaskResult, erro
 
 // AnalyzeLogDirectory analyzes all log files in a directory concurrently
 // Each log file's result is saved as a temporary file, then merged into final result
-func (la *LogAnalyzer) AnalyzeLogDirectory(logDir string) ([]models.TaskResult, error) {
-	log.Printf("[LogAnalyzer] Analyzing log directory: %s", logDir)
+// taskName is used to select the appropriate prompt for analysis
+func (la *LogAnalyzer) AnalyzeLogDirectory(logDir string, taskName string) ([]models.TaskResult, error) {
+	log.Printf("[LogAnalyzer] Analyzing log directory: %s for task: %s", logDir, taskName)
+
+	// Get the appropriate prompt based on task name
+	prompt := la.GetPromptByTaskName(taskName)
+	log.Printf("[LogAnalyzer] Using prompt for task type: %s", taskName)
 
 	// Read all log files from the directory
 	logFiles, err := la.readLogFiles(logDir)
@@ -257,7 +446,7 @@ func (la *LogAnalyzer) AnalyzeLogDirectory(logDir string) ([]models.TaskResult, 
 			log.Printf("[LogAnalyzer] [%d/%d] Analyzing: %s (size: %d bytes)",
 				idx+1, len(logFileNames), fileName, len(logContent))
 
-			results, err := la.AnalyzeLogs(logContent)
+			results, err := la.analyzeLogsWithPrompt(logContent, prompt)
 			if err != nil {
 				log.Printf("[LogAnalyzer] Failed to analyze %s: %v", fileName, err)
 				resultChan <- analysisResult{fileName: fileName, err: err}
@@ -463,6 +652,22 @@ func (la *LogAnalyzer) mergeResult(allResults map[string]*models.TaskResult, new
 		"pass":      1,
 		"running":   1,
 		"skipped":   0,
+	}
+
+	// Special handling for code_lint: if fail result has empty detail, treat it as invalid
+	// This is because Azure DevOps may report "not available" which AI sometimes misinterprets as fail
+	if newResult.CheckType == "code_lint" && newResult.Result == "fail" {
+		detail := ""
+		if newResult.Extra != nil {
+			if d, ok := newResult.Extra["detail"].(string); ok {
+				detail = d
+			}
+		}
+		if detail == "" {
+			// Fail with empty detail is likely a misjudgment, treat as skipped
+			log.Printf("[LogAnalyzer] [code_lint] Skipping fail result with empty detail from %s (likely misjudgment)", sourceFile)
+			newResult.Result = "skipped"
+		}
 	}
 
 	// Track if we're upgrading result priority (e.g., pass -> fail)

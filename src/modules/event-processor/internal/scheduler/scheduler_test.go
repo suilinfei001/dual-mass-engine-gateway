@@ -23,7 +23,7 @@ func TestNewSchedulerWithStorage(t *testing.T) {
 func TestSchedulerProcessEvents(t *testing.T) {
 	client := api.NewClient()
 	store := newMockTaskStorage()
-		resourceStore := newMockResourceStorage()
+	resourceStore := newMockResourceStorage()
 	aiMatcher := newMockAIMatcher()
 	sched := NewSchedulerWithStorage(client, store, resourceStore, aiMatcher)
 
@@ -73,7 +73,7 @@ func TestSchedulerProcessEvents(t *testing.T) {
 func TestSchedulerGetNextPendingTask(t *testing.T) {
 	client := api.NewClient()
 	store := newMockTaskStorage()
-		resourceStore := newMockResourceStorage()
+	resourceStore := newMockResourceStorage()
 	aiMatcher := newMockAIMatcher()
 	sched := NewSchedulerWithStorage(client, store, resourceStore, aiMatcher)
 
@@ -109,7 +109,7 @@ func TestSchedulerGetNextPendingTask(t *testing.T) {
 func TestSchedulerMarkTaskRunning(t *testing.T) {
 	client := api.NewClient()
 	store := newMockTaskStorage()
-		resourceStore := newMockResourceStorage()
+	resourceStore := newMockResourceStorage()
 	aiMatcher := newMockAIMatcher()
 	sched := NewSchedulerWithStorage(client, store, resourceStore, aiMatcher)
 
@@ -133,7 +133,7 @@ func TestSchedulerMarkTaskRunning(t *testing.T) {
 func TestSchedulerCompleteTask(t *testing.T) {
 	client := api.NewClient()
 	store := newMockTaskStorage()
-		resourceStore := newMockResourceStorage()
+	resourceStore := newMockResourceStorage()
 	aiMatcher := newMockAIMatcher()
 	sched := NewSchedulerWithStorage(client, store, resourceStore, aiMatcher)
 
@@ -185,7 +185,7 @@ func TestSchedulerCompleteTask(t *testing.T) {
 func TestSchedulerFailTask(t *testing.T) {
 	client := api.NewClient()
 	store := newMockTaskStorage()
-		resourceStore := newMockResourceStorage()
+	resourceStore := newMockResourceStorage()
 	aiMatcher := newMockAIMatcher()
 	sched := NewSchedulerWithStorage(client, store, resourceStore, aiMatcher)
 
@@ -220,7 +220,7 @@ func TestSchedulerFailTask(t *testing.T) {
 func TestSchedulerCancelTask(t *testing.T) {
 	client := api.NewClient()
 	store := newMockTaskStorage()
-		resourceStore := newMockResourceStorage()
+	resourceStore := newMockResourceStorage()
 	aiMatcher := newMockAIMatcher()
 	sched := NewSchedulerWithStorage(client, store, resourceStore, aiMatcher)
 
@@ -251,7 +251,7 @@ func TestSchedulerCancelTask(t *testing.T) {
 func TestSchedulerTimeoutTask(t *testing.T) {
 	client := api.NewClient()
 	store := newMockTaskStorage()
-		resourceStore := newMockResourceStorage()
+	resourceStore := newMockResourceStorage()
 	aiMatcher := newMockAIMatcher()
 	sched := NewSchedulerWithStorage(client, store, resourceStore, aiMatcher)
 
@@ -282,7 +282,7 @@ func TestSchedulerTimeoutTask(t *testing.T) {
 func TestSchedulerSkipTask(t *testing.T) {
 	client := api.NewClient()
 	store := newMockTaskStorage()
-		resourceStore := newMockResourceStorage()
+	resourceStore := newMockResourceStorage()
 	aiMatcher := newMockAIMatcher()
 	sched := NewSchedulerWithStorage(client, store, resourceStore, aiMatcher)
 
@@ -321,7 +321,7 @@ func TestSchedulerSkipTask(t *testing.T) {
 func TestSchedulerGetRunningTasks(t *testing.T) {
 	client := api.NewClient()
 	store := newMockTaskStorage()
-		resourceStore := newMockResourceStorage()
+	resourceStore := newMockResourceStorage()
 	aiMatcher := newMockAIMatcher()
 	sched := NewSchedulerWithStorage(client, store, resourceStore, aiMatcher)
 
@@ -346,7 +346,7 @@ func TestSchedulerGetRunningTasks(t *testing.T) {
 func TestSchedulerSequentialTaskCreation(t *testing.T) {
 	client := api.NewClient()
 	store := newMockTaskStorage()
-		resourceStore := newMockResourceStorage()
+	resourceStore := newMockResourceStorage()
 	aiMatcher := newMockAIMatcher()
 	sched := NewSchedulerWithStorage(client, store, resourceStore, aiMatcher)
 
@@ -387,7 +387,7 @@ func TestSchedulerSequentialTaskCreation(t *testing.T) {
 func TestSchedulerEventCache(t *testing.T) {
 	client := api.NewClient()
 	store := newMockTaskStorage()
-		resourceStore := newMockResourceStorage()
+	resourceStore := newMockResourceStorage()
 	aiMatcher := newMockAIMatcher()
 	sched := NewSchedulerWithStorage(client, store, resourceStore, aiMatcher)
 
@@ -459,9 +459,16 @@ func TestSchedulerCompleteTaskWithFailedCheck(t *testing.T) {
 func TestSchedulerCompleteTaskWithAllPassedChecks(t *testing.T) {
 	client := api.NewClient()
 	store := newMockTaskStorage()
-	resourceStore := newMockResourceStorage()
+	resourceStore := newMockResourceStorageWithDeployment()
 	aiMatcher := newMockAIMatcher()
 	sched := NewSchedulerWithStorage(client, store, resourceStore, aiMatcher)
+
+	event := &api.Event{
+		ID:          1,
+		EventType:   "push",
+		EventStatus: "pending",
+	}
+	sched.eventCache[1] = event
 
 	task := &models.Task{
 		ID:           1,
@@ -474,9 +481,10 @@ func TestSchedulerCompleteTaskWithAllPassedChecks(t *testing.T) {
 		StartTime:    &models.LocalTime{Time: time.Now()},
 	}
 
-	// All checks passed
+	store.CreateTask(task)
+
 	results := []models.TaskResult{
-		{CheckType: "compilation", Result: "pass"},
+		{CheckType: "compilation", Result: "pass", Extra: map[string]interface{}{"chart": "https://test.chart/test.tgz"}},
 		{CheckType: "code_lint", Result: "pass"},
 		{CheckType: "security_scan", Result: "pass"},
 		{CheckType: "unit_test", Result: "pass"},
@@ -487,13 +495,76 @@ func TestSchedulerCompleteTaskWithAllPassedChecks(t *testing.T) {
 		t.Fatalf("CompleteTask should not return error: %v", err)
 	}
 
-	// Task should be marked as passed
 	if task.Status != models.TaskStatusPassed {
 		t.Errorf("Task status should be passed, got %s", task.Status)
 	}
 
-	// Task should be successful
 	if !task.IsSuccessful() {
 		t.Error("Task with all passed checks should be successful")
+	}
+}
+
+// TestSchedulerCompleteTaskWithNoResource 测试 no_resource 状态任务会更新事件状态为 failed
+// 修复 bug_028: no_resource 任务状态未反馈给 event-receiver
+func TestSchedulerCompleteTaskWithNoResource(t *testing.T) {
+	client := api.NewClient()
+	store := newMockTaskStorage()
+	resourceStore := newMockResourceStorage()
+	aiMatcher := newMockAIMatcher()
+	sched := NewSchedulerWithStorage(client, store, resourceStore, aiMatcher)
+
+	event := &api.Event{
+		ID:          1,
+		EventType:   "push",
+		EventStatus: "processing",
+		QualityChecks: []api.QualityCheck{
+			{ID: 1, CheckType: "compilation", Stage: "basic_ci", CheckStatus: "pending"},
+			{ID: 2, CheckType: "code_lint", Stage: "basic_ci", CheckStatus: "pending"},
+		},
+	}
+	sched.eventCache[1] = event
+
+	// 创建一个 no_resource 状态的任务（例如 basic_ci_all，不是最后一个任务）
+	task := &models.Task{
+		ID:           1,
+		TaskID:       "test-task-1",
+		TaskName:     "basic_ci_all",
+		EventID:      1,
+		Stage:        "basic_ci",
+		ExecuteOrder: 1, // 不是最后一个任务（MaxExecuteOrder 是 6）
+		Status:       models.TaskStatusNoResource,
+		StartTime:    &models.LocalTime{Time: time.Now()},
+		ErrorMessage: func() *string { s := "no matching resource found for this task: no resource matched for task basic_ci_all"; return &s }(),
+	}
+
+	store.CreateTask(task)
+
+	// CompleteTask 应该：
+	// 1. 不创建下一个任务（因为 IsSuccessful() = false）
+	// 2. 更新事件状态为 failed（即使不是最后一个任务）
+	err := sched.CompleteTask(task, nil)
+	if err != nil {
+		t.Fatalf("CompleteTask should not return error: %v", err)
+	}
+
+	// 任务状态应保持 no_resource
+	if task.Status != models.TaskStatusNoResource {
+		t.Errorf("Task status should remain no_resource, got %s", task.Status)
+	}
+
+	// 不应该创建下一个任务
+	tasks, _ := store.GetTasksByEventID(1)
+	if len(tasks) != 1 {
+		t.Errorf("Should have only 1 task (no next task created), got %d", len(tasks))
+	}
+
+	// 验证任务确实是阻塞的（不成功）
+	if task.IsSuccessful() {
+		t.Error("No-resource task should not be successful")
+	}
+
+	// 验证任务是阻塞的
+	if !task.IsBlocking() {
+		t.Error("No-resource task should be blocking")
 	}
 }

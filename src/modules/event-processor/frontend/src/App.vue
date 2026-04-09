@@ -1,37 +1,114 @@
 <template>
   <div id="app">
+    <!-- Dialog Manager for global alerts and confirms -->
+    <DialogManager />
     <nav class="navbar">
-      <div class="nav-brand">
-        <router-link to="/">Event Processor</router-link>
-      </div>
-      <div class="nav-links">
-        <router-link to="/events">Events</router-link>
-        <router-link to="/resources">Resources</router-link>
-        <router-link v-if="isAdmin" to="/console">Console</router-link>
-      </div>
-      <div class="nav-auth">
-        <template v-if="isLoggedIn">
-          <span class="username">{{ username }}</span>
-          <button @click="logout" class="btn-logout">Logout</button>
-        </template>
-        <template v-else>
-          <router-link to="/login" class="btn-login">Login</router-link>
-          <router-link to="/register" class="btn-register">Register</router-link>
-        </template>
+      <div class="nav-container">
+        <router-link to="/" class="nav-brand">
+          <svg xmlns="http://www.w3.org/2000/svg" class="brand-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          <span>质量网关</span>
+        </router-link>
+        
+        <div class="nav-links">
+          <router-link to="/events" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            事件处理
+          </router-link>
+          <router-link to="/resources" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            可执行资源
+          </router-link>
+          <router-link v-if="isAdmin" to="/console" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            控制台
+          </router-link>
+          <router-link v-if="isLoggedIn" to="/resource-pool" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            资源池管理
+          </router-link>
+        </div>
+        
+        <div class="nav-auth">
+          <template v-if="isLoggedIn">
+            <div class="user-info">
+              <svg xmlns="http://www.w3.org/2000/svg" class="user-avatar" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <span class="username">{{ username }}</span>
+            </div>
+            <button @click="logout" class="btn-logout">
+              <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              登出
+            </button>
+          </template>
+          <template v-else>
+            <router-link to="/login" class="btn-login">登录</router-link>
+          </template>
+        </div>
       </div>
     </nav>
     <main class="main-content">
       <router-view />
     </main>
+    <footer class="app-footer">
+      <div class="footer-container">
+        <div class="footer-brand">
+          <svg xmlns="http://www.w3.org/2000/svg" class="footer-logo" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          <div class="brand-text">
+            <h3>双引擎质量网关</h3>
+            <p>企业级质量检查与资源管理平台</p>
+          </div>
+        </div>
+        <div class="footer-links">
+          <div class="footer-column">
+            <h4>功能模块</h4>
+            <ul>
+              <li><router-link to="/events">事件处理</router-link></li>
+              <li><router-link to="/resources">可执行资源</router-link></li>
+              <li><router-link v-if="isLoggedIn" to="/resource-pool">资源池管理</router-link></li>
+            </ul>
+          </div>
+          <div class="footer-column">
+            <h4>快速链接</h4>
+            <ul>
+              <li><router-link to="/documentation">使用文档</router-link></li>
+              <li><router-link to="/api-reference">API 参考</router-link></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 双引擎质量网关. All rights reserved.</p>
+      </div>
+    </footer>
   </div>
 </template>
 
 <script>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import DialogManager from './components/DialogManager.vue'
 
 export default {
   name: 'App',
+  components: {
+    DialogManager
+  },
   setup() {
     const router = useRouter()
     const isLoggedIn = ref(false)
@@ -143,54 +220,76 @@ body {
 }
 
 .navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 2rem;
-  height: 64px;
-  background: var(--bg-card);
-  color: var(--text-primary);
-  box-shadow: var(--shadow);
   position: sticky;
   top: 0;
   z-index: 100;
+  background: linear-gradient(135deg, #0C4A6E 0%, #0369A1 100%);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.15);
 }
 
-.nav-brand a {
+.nav-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  height: 64px;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--primary);
+  color: white;
   text-decoration: none;
-  letter-spacing: -0.025em;
+  transition: opacity 0.2s ease;
 }
 
-.nav-brand a span {
-  color: var(--accent);
+.nav-brand:hover {
+  opacity: 0.9;
+}
+
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  color: #38BDF8;
 }
 
 .nav-links {
   display: flex;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0.25rem;
 }
 
-.nav-links a {
-  color: var(--text-secondary);
-  text-decoration: none;
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.5rem 1rem;
-  border-radius: var(--radius-sm);
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
   font-size: 0.9rem;
   font-weight: 500;
+  border-radius: 0.5rem;
   transition: all 0.2s ease;
 }
 
-.nav-links a:hover {
-  color: var(--primary);
-  background-color: var(--bg-main);
+.nav-icon {
+  width: 18px;
+  height: 18px;
 }
 
-.nav-links a.router-link-active {
-  color: var(--primary);
-  background-color: #FEF3C7;
+.nav-link:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.nav-link.router-link-active {
+  color: white;
+  background: rgba(56, 189, 248, 0.2);
 }
 
 .nav-auth {
@@ -199,53 +298,62 @@ body {
   gap: 1rem;
 }
 
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  color: #38BDF8;
+}
+
 .username {
   font-weight: 500;
-  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
-.btn-login,
-.btn-register,
 .btn-logout {
-  padding: 0.5rem 1.25rem;
-  border-radius: var(--radius-sm);
-  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
   cursor: pointer;
-  border: none;
+  transition: all 0.2s ease;
+}
+
+.btn-logout:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.btn-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-login {
+  padding: 0.5rem 1.25rem;
+  background: #0EA5E9;
+  color: white;
+  text-decoration: none;
+  border-radius: 0.5rem;
   font-size: 0.875rem;
   font-weight: 500;
   transition: all 0.2s ease;
 }
 
-.btn-login:focus,
-.btn-register:focus,
-.btn-logout:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.btn-login,
-.btn-register {
-  background-color: var(--primary);
-  color: white;
-}
-
-.btn-login:hover,
-.btn-register:hover {
-  background-color: var(--primary-hover);
-}
-
-.btn-logout {
-  background-color: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
-}
-
-.btn-logout:hover {
-  background-color: var(--danger-bg);
-  color: var(--danger);
-  border-color: var(--danger);
+.btn-login:hover {
+  background: #0284C7;
+  transform: translateY(-1px);
 }
 
 .main-content {
@@ -254,6 +362,95 @@ body {
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+}
+
+/* Footer Styles */
+.app-footer {
+  background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+  border-top: 1px solid #E2E8F0;
+  margin-top: auto;
+}
+
+.footer-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+  gap: 3rem;
+}
+
+.footer-brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.footer-logo {
+  width: 48px;
+  height: 48px;
+  color: #0EA5E9;
+  flex-shrink: 0;
+}
+
+.brand-text h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0C4A6E;
+  margin: 0 0 0.375rem 0;
+}
+
+.brand-text p {
+  font-size: 0.875rem;
+  color: #64748B;
+  margin: 0;
+}
+
+.footer-links {
+  display: flex;
+  gap: 4rem;
+}
+
+.footer-column h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0C4A6E;
+  margin-bottom: 1rem;
+}
+
+.footer-column ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-column ul li {
+  margin-bottom: 0.625rem;
+}
+
+.footer-column a {
+  font-size: 0.875rem;
+  color: #64748B;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footer-column a:hover {
+  color: #0EA5E9;
+}
+
+.footer-bottom {
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid #E2E8F0;
+  text-align: center;
+  background: white;
+}
+
+.footer-bottom p {
+  font-size: 0.8125rem;
+  color: #94A3B8;
+  margin: 0;
 }
 
 .card {
@@ -408,12 +605,32 @@ table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
+  table-layout: fixed;
 }
 
 th, td {
   padding: 0.875rem 1rem;
   text-align: left;
   border-bottom: 1px solid var(--border);
+}
+
+/* Apply text overflow to all table cells */
+td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Ensure inline elements in table cells also truncate */
+td > *,
+td > span,
+td > a {
+  display: inline-block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
 }
 
 th {
@@ -423,6 +640,7 @@ th {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 th:first-child {
@@ -710,6 +928,16 @@ tr:last-child td {
   th, td {
     padding: 0.625rem 0.75rem;
     font-size: 0.8125rem;
+  }
+
+  .footer-content {
+    flex-direction: column;
+    padding: 1.5rem;
+    gap: 1.5rem;
+  }
+
+  .footer-bottom {
+    padding: 0.75rem 1rem;
   }
 }
 </style>
