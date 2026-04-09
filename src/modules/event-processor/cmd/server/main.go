@@ -251,6 +251,30 @@ func executeNextTask(sched *scheduler.SchedulerWithStorage, mon *monitor.Monitor
 	// Check if this is an Azure task
 	isAzureTask := executor.IsAzureURL(task.RequestURL)
 
+	// 对于 deployment_deployment 任务，需要先获取 Testbed
+	if task.TaskName == "deployment_deployment" {
+		log.Printf("[executeNextTask] Deployment task requires testbed, acquiring...")
+		for {
+			// 检查任务状态，如果已经不是 running 则退出
+			currentTask, err := sched.GetTaskByID(task.ID)
+			if err != nil {
+				log.Printf("[executeNextTask] Failed to get task status: %v", err)
+			} else if currentTask.Status != models.TaskStatusRunning {
+				log.Printf("[executeNextTask] Task status changed to %s, stopping testbed acquisition", currentTask.Status)
+				return
+			}
+
+			if err := sched.AcquireTestbedForDeployment(task); err != nil {
+				log.Printf("[executeNextTask] Failed to acquire testbed: %v, retrying in 1 minute...", err)
+				time.Sleep(1 * time.Minute)
+				continue
+			}
+			break
+		}
+		log.Printf("[executeNextTask] Testbed acquired: ip=%s, ssh_user=%s",
+			task.TestbedIP, task.SSHUser)
+	}
+
 	var results []models.TaskResult
 
 	if isAzureTask {
@@ -293,6 +317,15 @@ func executeNextTask(sched *scheduler.SchedulerWithStorage, mon *monitor.Monitor
 
 	for {
 		time.Sleep(5 * time.Second)
+
+		// 检查数据库中的任务状态，如果已经被其他地方（如 monitor）标记为非 running 状态则退出
+		currentTask, err := sched.GetTaskByID(task.ID)
+		if err != nil {
+			log.Printf("[executeNextTask] Failed to get task status from database: %v", err)
+		} else if currentTask.Status != models.TaskStatusRunning {
+			log.Printf("[executeNextTask] Task status in database changed to %s, stopping polling", currentTask.Status)
+			return
+		}
 
 		status, queryResults, err := mon.QueryTaskStatus(task)
 		if err != nil {

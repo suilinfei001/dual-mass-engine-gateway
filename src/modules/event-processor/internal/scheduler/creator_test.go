@@ -13,7 +13,9 @@ type mockTaskStorage struct {
 	taskMap map[int][]*models.Task
 }
 
-type mockResourceStorage struct{}
+type mockResourceStorage struct {
+	resources []*models.ExecutableResource
+}
 
 func (m *mockResourceStorage) CreateResource(resource *models.ExecutableResource) error {
 	return nil
@@ -24,7 +26,9 @@ func (m *mockResourceStorage) GetResource(id int) (*models.ExecutableResource, e
 }
 
 func (m *mockResourceStorage) GetAllResources() ([]*models.ExecutableResource, error) {
-	// 返回空资源列表，让测试使用 mock URL
+	if m.resources != nil {
+		return m.resources, nil
+	}
 	return []*models.ExecutableResource{}, nil
 }
 
@@ -56,6 +60,21 @@ func (m *mockAIMatcher) MatchResourceStream(req *ai.MatchRequest, callback func(
 
 func newMockResourceStorage() *mockResourceStorage {
 	return &mockResourceStorage{}
+}
+
+func newMockResourceStorageWithDeployment() *mockResourceStorage {
+	return &mockResourceStorage{
+		resources: []*models.ExecutableResource{
+			{
+				ID:           1,
+				ResourceName: "deployment_deployment_test",
+				ResourceType: models.ResourceTypeDeployment,
+				Organization: "test-org",
+				Project:      "test-project",
+				PipelineID:   123,
+			},
+		},
+	}
 }
 
 func newMockAIMatcher() *mockAIMatcher {
@@ -449,5 +468,74 @@ func TestTaskExecutionOrder(t *testing.T) {
 	task3, _ := creator.CreateNextTask(1, 2, event)
 	if task3.ExecuteOrder != 3 {
 		t.Errorf("Third task ExecuteOrder = %d, want 3", task3.ExecuteOrder)
+	}
+}
+
+func TestIsRepoMatched(t *testing.T) {
+	creator := &TaskCreator{}
+
+	tests := []struct {
+		name           string
+		repoPath       string
+		eventRepo      string
+		expectedResult bool
+	}{
+		{
+			name:           "exact match",
+			repoPath:       "kweaver-ai/adp",
+			eventRepo:      "kweaver-ai/adp",
+			expectedResult: true,
+		},
+		{
+			name:           "subdir match - repo_path has subdir",
+			repoPath:       "kweaver-ai/adp/context-loader/agent-retrieval",
+			eventRepo:      "kweaver-ai/adp",
+			expectedResult: true,
+		},
+		{
+			name:           "no match - different repo",
+			repoPath:       "kweaver-ai/adp/context-loader/agent-retrieval",
+			eventRepo:      "suilinfei001/TestOpenSourceCIWorkflow",
+			expectedResult: false,
+		},
+		{
+			name:           "all - matches any repo",
+			repoPath:       "all",
+			eventRepo:      "any-org/any-repo",
+			expectedResult: true,
+		},
+		{
+			name:           "asterisk - matches any repo",
+			repoPath:       "*",
+			eventRepo:      "any-org/any-repo",
+			expectedResult: true,
+		},
+		{
+			name:           "empty repo_path",
+			repoPath:       "",
+			eventRepo:      "org/repo",
+			expectedResult: false,
+		},
+		{
+			name:           "invalid repo_path format",
+			repoPath:       "invalid",
+			eventRepo:      "org/repo",
+			expectedResult: false,
+		},
+		{
+			name:           "partial match - different org",
+			repoPath:       "other-org/adp",
+			eventRepo:      "kweaver-ai/adp",
+			expectedResult: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := creator.isRepoMatched(tt.repoPath, tt.eventRepo)
+			if result != tt.expectedResult {
+				t.Errorf("isRepoMatched(%q, %q) = %v, want %v", tt.repoPath, tt.eventRepo, result, tt.expectedResult)
+			}
+		})
 	}
 }

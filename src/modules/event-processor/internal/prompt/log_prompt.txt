@@ -40,8 +40,19 @@
   - 重要：不要直接使用构建任务的状态（exit-code），要以实际漏洞检测结果为准
 
 ### unit_test
-- 识别关键词：`test`、`TestResults`、`coverage`、`passed`、`failed`
+- 识别关键词：test、TestResults、coverage、passed、failed、Quality Gate UT、Quality Gate Coverage
 - 提取信息：测试通过/失败状态、覆盖率分数
+- 特殊规则：
+  - **判断 pass/fail 的关键依据**：
+    - 如果日志中出现 "[SUCCESS]" 或 "policy passed"，结果为 pass
+    - 如果日志中出现 "[FAIL]" 或 "policy failed"，结果为 fail
+    - 如果日志中出现 "Code Coverage (%): X"，提取覆盖率分数到 score 字段
+  - **重要**：warning 不等于 fail！
+    - "Warnings policy passed with X warning(s)" 表示测试通过，结果是 pass
+    - "warning" 只是警告，不是失败
+    - 只有明确出现 "failed"、"error"、"FAIL" 才是失败
+  - 如果日志中没有单元测试相关的任务执行记录，结果为 skipped
+  - 如果找到覆盖率数据（如 "Code Coverage (%): 31.6167"），提取分数到 extra.score
 
 ## 输出格式
 

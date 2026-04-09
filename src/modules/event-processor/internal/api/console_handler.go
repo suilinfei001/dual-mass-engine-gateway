@@ -68,6 +68,7 @@ func (h *ConsoleHandler) RegisterRoutes(router *mux.Router, authMiddleware func(
 	router.Handle("/api/admin/config/log-retention", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleUpdateLogRetention)))).Methods("PUT")
 	router.Handle("/api/admin/config/ai-concurrency", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleUpdateAIConcurrency)))).Methods("PUT")
 	router.Handle("/api/admin/config/ai-request-pool-size", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleUpdateAIRequestPoolSize)))).Methods("PUT")
+	router.Handle("/api/admin/config/cmp", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleUpdateCMPConfig)))).Methods("PUT")
 	router.Handle("/api/admin/cleanup", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleCleanupAll)))).Methods("POST")
 	router.Handle("/api/admin/cleanup/tasks", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleCleanupTasks)))).Methods("POST")
 	router.Handle("/api/admin/cleanup/resources", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleCleanupResources)))).Methods("POST")
@@ -75,6 +76,13 @@ func (h *ConsoleHandler) RegisterRoutes(router *mux.Router, authMiddleware func(
 	router.Handle("/api/admin/cleanup/task-results", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleCleanupTaskResults)))).Methods("POST")
 	router.Handle("/api/admin/cleanup/sessions", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleCleanupSessions)))).Methods("POST")
 	router.Handle("/api/admin/cleanup/all-sessions", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleCleanupAllSessions)))).Methods("POST")
+	// Resource Pool 清理路由（代理到 resource-pool 服务）
+	router.Handle("/api/admin/cleanup/resource-pool/testbeds", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleCleanupResourcePoolTestbeds)))).Methods("POST")
+	router.Handle("/api/admin/cleanup/resource-pool/allocations", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleCleanupResourcePoolAllocations)))).Methods("POST")
+	router.Handle("/api/admin/cleanup/resource-pool/resource-instances", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleCleanupResourcePoolInstances)))).Methods("POST")
+	router.Handle("/api/admin/cleanup/resource-pool/categories", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleCleanupResourcePoolCategories)))).Methods("POST")
+	router.Handle("/api/admin/cleanup/resource-pool/quota-policies", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleCleanupResourcePoolPolicies)))).Methods("POST")
+	router.Handle("/api/admin/cleanup/resource-pool/all", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleCleanupResourcePoolAll)))).Methods("POST")
 	router.Handle("/api/admin/users", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleSearchUsers)))).Methods("GET")
 	router.Handle("/api/admin/users/paginated", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleGetUsersWithPagination)))).Methods("GET")
 	router.Handle("/api/admin/users/{id}/password", authMiddleware(adminMiddleware(http.HandlerFunc(h.handleUpdateUserPassword)))).Methods("PUT")
@@ -608,6 +616,40 @@ func (h *ConsoleHandler) handleUpdateAIRequestPoolSize(w http.ResponseWriter, r 
 		"data": map[string]interface{}{
 			"poolSize": req.PoolSize,
 		},
+	})
+}
+
+func (h *ConsoleHandler) handleUpdateCMPConfig(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		AccessKey string `json:"access_key"`
+		SecretKey string `json:"secret_key"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Save CMP_ACCESS_KEY
+	if req.AccessKey != "" {
+		if err := h.configStorage.SetConfig(models.ConfigKeyCMPAccessKey, req.AccessKey); err != nil {
+			http.Error(w, "Failed to save CMP access key: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Save CMP_SECRET_KEY
+	if req.SecretKey != "" {
+		if err := h.configStorage.SetConfig(models.ConfigKeyCMPSecretKey, req.SecretKey); err != nil {
+			http.Error(w, "Failed to save CMP secret key: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "CMP config updated successfully",
 	})
 }
 
@@ -1216,4 +1258,121 @@ func GetUsernameFromContext(r *http.Request) (string, bool) {
 
 	usernameStr, ok := username.(string)
 	return usernameStr, ok
+}
+
+// Resource Pool 清理处理器（代理到 resource-pool 服务）
+
+// getResourcePoolBaseURL 获取 Resource Pool 服务的基础 URL
+func (h *ConsoleHandler) getResourcePoolBaseURL() string {
+	// 从配置中获取 resource-pool 服务地址
+	// 默认使用 Docker 网络内的服务地址
+	url, _ := h.configStorage.GetEventReceiverIP()
+	// 如果配置了 event-receiver IP，尝试使用相同模式的 resource-pool 地址
+	// 否则使用默认的 Docker 网络地址
+	if url != "" && strings.Contains(url, "10.4.174.125") {
+		return "http://resource-pool-server:5003"
+	}
+	return "http://resource-pool-server:5003"
+}
+
+// handleCleanupResourcePoolTestbeds 清理所有 Testbed
+func (h *ConsoleHandler) handleCleanupResourcePoolTestbeds(w http.ResponseWriter, r *http.Request) {
+	baseURL := h.getResourcePoolBaseURL()
+	resp, err := http.Post(baseURL+"/admin/cleanup/testbeds", "application/json", nil)
+	if err != nil {
+		http.Error(w, "Failed to connect to resource-pool service: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+// handleCleanupResourcePoolAllocations 清理所有 Allocation
+func (h *ConsoleHandler) handleCleanupResourcePoolAllocations(w http.ResponseWriter, r *http.Request) {
+	baseURL := h.getResourcePoolBaseURL()
+	resp, err := http.Post(baseURL+"/admin/cleanup/allocations", "application/json", nil)
+	if err != nil {
+		http.Error(w, "Failed to connect to resource-pool service: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+// handleCleanupResourcePoolInstances 清理所有 ResourceInstance
+func (h *ConsoleHandler) handleCleanupResourcePoolInstances(w http.ResponseWriter, r *http.Request) {
+	baseURL := h.getResourcePoolBaseURL()
+	resp, err := http.Post(baseURL+"/admin/cleanup/resource-instances", "application/json", nil)
+	if err != nil {
+		http.Error(w, "Failed to connect to resource-pool service: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+// handleCleanupResourcePoolCategories 清理所有 Category
+func (h *ConsoleHandler) handleCleanupResourcePoolCategories(w http.ResponseWriter, r *http.Request) {
+	baseURL := h.getResourcePoolBaseURL()
+	resp, err := http.Post(baseURL+"/admin/cleanup/categories", "application/json", nil)
+	if err != nil {
+		http.Error(w, "Failed to connect to resource-pool service: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+// handleCleanupResourcePoolPolicies 清理所有 QuotaPolicy
+func (h *ConsoleHandler) handleCleanupResourcePoolPolicies(w http.ResponseWriter, r *http.Request) {
+	baseURL := h.getResourcePoolBaseURL()
+	resp, err := http.Post(baseURL+"/admin/cleanup/quota-policies", "application/json", nil)
+	if err != nil {
+		http.Error(w, "Failed to connect to resource-pool service: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+// handleCleanupResourcePoolAll 清理所有 Resource Pool 数据
+func (h *ConsoleHandler) handleCleanupResourcePoolAll(w http.ResponseWriter, r *http.Request) {
+	baseURL := h.getResourcePoolBaseURL()
+	resp, err := http.Post(baseURL+"/admin/cleanup/all", "application/json", nil)
+	if err != nil {
+		http.Error(w, "Failed to connect to resource-pool service: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
 }

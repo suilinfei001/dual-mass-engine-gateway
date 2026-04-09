@@ -99,27 +99,34 @@ type TaskResponse struct {
 
 // Task 任务定义
 type Task struct {
-	ID           int          `json:"id"`
-	TaskID       string       `json:"task_id"`
-	TaskName     string       `json:"task_name"`
-	EventID      int          `json:"event_id"`
-	CheckType    string       `json:"check_type,omitempty"` // 仅用于单一检查的任务
-	Stage        string       `json:"stage"`
-	StageOrder   int          `json:"stage_order"`
-	CheckOrder   int          `json:"check_order,omitempty"`
-	ExecuteOrder int          `json:"execute_order"`
-	ResourceID   int          `json:"resource_id,omitempty"` // AI匹配的资源ID
-	RequestURL   string       `json:"request_url"`
-	BuildID      int          `json:"build_id,omitempty"` // Azure DevOps build ID
-	Status       TaskStatus   `json:"status"`
-	StartTime    *LocalTime   `json:"start_time"`
-	EndTime      *LocalTime   `json:"end_time"`
-	ErrorMessage *string      `json:"error_message,omitempty"`
-	Results      []TaskResult `json:"results,omitempty"`
-	LogFilePath  string       `json:"log_file_path,omitempty"`
-	Analyzing    bool         `json:"analyzing"` // AI分析是否正在进行
-	CreatedAt    time.Time    `json:"created_at"`
-	UpdatedAt    time.Time    `json:"updated_at"`
+	ID             int          `json:"id"`
+	TaskID         string       `json:"task_id"`
+	TaskName       string       `json:"task_name"`
+	EventID        int          `json:"event_id"`
+	CheckType      string       `json:"check_type,omitempty"` // 仅用于单一检查的任务
+	Stage          string       `json:"stage"`
+	StageOrder     int          `json:"stage_order"`
+	CheckOrder     int          `json:"check_order,omitempty"`
+	ExecuteOrder   int          `json:"execute_order"`
+	ResourceID     int          `json:"resource_id,omitempty"` // AI匹配的资源ID
+	RequestURL     string       `json:"request_url"`
+	BuildID        int          `json:"build_id,omitempty"` // Azure DevOps build ID
+	Status         TaskStatus   `json:"status"`
+	StartTime      *LocalTime   `json:"start_time"`
+	EndTime        *LocalTime   `json:"end_time"`
+	ErrorMessage   *string      `json:"error_message,omitempty"`
+	Results        []TaskResult `json:"results,omitempty"`
+	LogFilePath    string       `json:"log_file_path,omitempty"`
+	Analyzing      bool         `json:"analyzing"` // AI分析是否正在进行
+	CreatedAt      time.Time    `json:"created_at"`
+	UpdatedAt      time.Time    `json:"updated_at"`
+	// Testbed 相关字段（用于 deployment 任务）
+	TestbedUUID     string `json:"testbed_uuid,omitempty"`     // Testbed UUID（用于释放）
+	TestbedIP       string `json:"testbed_ip,omitempty"`       // Testbed IP 地址
+	SSHUser         string `json:"ssh_user,omitempty"`         // SSH 用户名
+	SSHPassword     string `json:"ssh_password,omitempty"`     // SSH 密码
+	ChartURL        string `json:"chart_url,omitempty"`        // Chart URL（从 basic_ci_all 获取）
+	AllocationUUID  string `json:"allocation_uuid,omitempty"` // 分配 UUID（用于释放）
 }
 
 // IsCompleted 检查任务是否已完成（成功或失败）

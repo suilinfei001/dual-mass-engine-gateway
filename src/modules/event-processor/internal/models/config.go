@@ -25,6 +25,8 @@ const (
 	ConfigKeyLogRetentionDays   = "log_retention_days"
 	ConfigKeyAIConcurrency      = "ai_concurrency"
 	ConfigKeyAIRequestPoolSize  = "ai_request_pool_size"
+	ConfigKeyCMPAccessKey       = "cmp_access_key"
+	ConfigKeyCMPSecretKey       = "cmp_secret_key"
 )
 
 func NewSystemConfig(key, value, description string) *SystemConfig {

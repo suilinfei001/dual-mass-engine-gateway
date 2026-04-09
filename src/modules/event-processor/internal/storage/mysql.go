@@ -101,6 +101,14 @@ func NewMySQLTaskStorage(dsn string) (*MySQLTaskStorage, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
+	// 设置连接池参数以避免空闲连接被服务器关闭
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	// 连接最大存活时间（小于 MySQL wait_timeout，默认 8 小时）
+	db.SetConnMaxLifetime(4 * time.Hour)
+	// 空闲连接最大存活时间，10 分钟后回收空闲连接
+	db.SetConnMaxIdleTime(10 * time.Minute)
+
 	// 测试连接
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
@@ -115,8 +123,9 @@ func (s *MySQLTaskStorage) CreateTask(task *models.Task) error {
 		INSERT INTO tasks (
 			task_id, task_name, event_id, check_type, stage, stage_order,
 			check_order, execute_order, resource_id, request_url, build_id, log_file_path, analyzing,
+			testbed_uuid, testbed_ip, ssh_user, ssh_password, chart_url, allocation_uuid,
 			status, start_time, end_time, error_message, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	var startTime, endTime sql.NullTime
@@ -142,12 +151,15 @@ func (s *MySQLTaskStorage) CreateTask(task *models.Task) error {
 		task.TaskID, task.TaskName, task.EventID, task.CheckType, task.Stage,
 		task.StageOrder, task.CheckOrder, task.ExecuteOrder, resourceID,
 		task.RequestURL, buildID, task.LogFilePath, task.Analyzing,
+		task.TestbedUUID, task.TestbedIP, task.SSHUser, task.SSHPassword, task.ChartURL, task.AllocationUUID,
 		task.Status, startTime, endTime, task.ErrorMessage,
 		task.CreatedAt, task.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create task: %w", err)
 	}
+
+	log.Printf("[CreateTask] Debug: taskName=%s, ChartURL='%s', TestbedIP='%s'", task.TaskName, task.ChartURL, task.TestbedIP)
 
 	id, err := result.LastInsertId()
 	if err != nil {
@@ -163,6 +175,7 @@ func (s *MySQLTaskStorage) GetTask(id int) (*models.Task, error) {
 	query := `
 		SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
 			check_order, execute_order, resource_id, request_url, build_id, log_file_path, analyzing,
+			testbed_uuid, testbed_ip, ssh_user, ssh_password, chart_url, allocation_uuid,
 			status, start_time, end_time, error_message, created_at, updated_at
 		FROM tasks
 		WHERE id = ?
@@ -177,6 +190,7 @@ func (s *MySQLTaskStorage) GetTask(id int) (*models.Task, error) {
 		&task.ID, &task.TaskID, &task.TaskName, &task.EventID, &task.CheckType,
 		&task.Stage, &task.StageOrder, &task.CheckOrder, &task.ExecuteOrder,
 		&resourceID, &task.RequestURL, &buildID, &task.LogFilePath, &task.Analyzing,
+		&task.TestbedUUID, &task.TestbedIP, &task.SSHUser, &task.SSHPassword, &task.ChartURL, &task.AllocationUUID,
 		&task.Status, &startTime, &endTime, &task.ErrorMessage, &task.CreatedAt, &task.UpdatedAt,
 	)
 	if err != nil {
@@ -207,6 +221,7 @@ func (s *MySQLTaskStorage) GetTaskByTaskID(taskID string) (*models.Task, error) 
 	query := `
 		SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
 			check_order, execute_order, resource_id, request_url, build_id, log_file_path, analyzing,
+			testbed_uuid, testbed_ip, ssh_user, ssh_password, chart_url, allocation_uuid,
 			status, start_time, end_time, error_message, created_at, updated_at
 		FROM tasks
 		WHERE task_id = ?
@@ -221,6 +236,7 @@ func (s *MySQLTaskStorage) GetTaskByTaskID(taskID string) (*models.Task, error) 
 		&task.ID, &task.TaskID, &task.TaskName, &task.EventID, &task.CheckType,
 		&task.Stage, &task.StageOrder, &task.CheckOrder, &task.ExecuteOrder,
 		&resourceID, &task.RequestURL, &buildID, &task.LogFilePath, &task.Analyzing,
+		&task.TestbedUUID, &task.TestbedIP, &task.SSHUser, &task.SSHPassword, &task.ChartURL, &task.AllocationUUID,
 		&task.Status, &startTime, &endTime, &task.ErrorMessage, &task.CreatedAt, &task.UpdatedAt,
 	)
 	if err != nil {
@@ -251,6 +267,7 @@ func (s *MySQLTaskStorage) ListTasks() ([]*models.Task, error) {
 	query := `
 		SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
 			check_order, execute_order, resource_id, request_url, build_id, log_file_path, analyzing,
+			testbed_uuid, testbed_ip, ssh_user, ssh_password, chart_url, allocation_uuid,
 			status, start_time, end_time, error_message, created_at, updated_at
 		FROM tasks
 		ORDER BY execute_order ASC
@@ -273,6 +290,7 @@ func (s *MySQLTaskStorage) ListTasks() ([]*models.Task, error) {
 			&task.ID, &task.TaskID, &task.TaskName, &task.EventID, &task.CheckType,
 			&task.Stage, &task.StageOrder, &task.CheckOrder, &task.ExecuteOrder,
 			&resourceID, &task.RequestURL, &buildID, &task.LogFilePath, &task.Analyzing,
+			&task.TestbedUUID, &task.TestbedIP, &task.SSHUser, &task.SSHPassword, &task.ChartURL, &task.AllocationUUID,
 			&task.Status, &startTime, &endTime, &task.ErrorMessage, &task.CreatedAt, &task.UpdatedAt,
 		)
 		if err != nil {
@@ -304,6 +322,7 @@ func (s *MySQLTaskStorage) UpdateTask(task *models.Task) error {
 		UPDATE tasks SET
 			task_name = ?, event_id = ?, check_type = ?, stage = ?, stage_order = ?,
 			check_order = ?, execute_order = ?, resource_id = ?, request_url = ?, build_id = ?, log_file_path = ?, analyzing = ?,
+			testbed_uuid = ?, testbed_ip = ?, ssh_user = ?, ssh_password = ?, chart_url = ?, allocation_uuid = ?,
 			status = ?, start_time = ?, end_time = ?, error_message = ?, updated_at = ?
 		WHERE id = ?
 	`
@@ -331,6 +350,7 @@ func (s *MySQLTaskStorage) UpdateTask(task *models.Task) error {
 		task.TaskName, task.EventID, task.CheckType, task.Stage, task.StageOrder,
 		task.CheckOrder, task.ExecuteOrder, resourceID,
 		task.RequestURL, buildID, task.LogFilePath, task.Analyzing,
+		task.TestbedUUID, task.TestbedIP, task.SSHUser, task.SSHPassword, task.ChartURL, task.AllocationUUID,
 		task.Status, startTime, endTime, task.ErrorMessage, task.UpdatedAt, task.ID,
 	)
 	if err != nil {
@@ -387,6 +407,7 @@ func (s *MySQLTaskStorage) GetPendingTasks() ([]*models.Task, error) {
 	query := `
 		SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
 			check_order, execute_order, resource_id, request_url, build_id, log_file_path, analyzing,
+			testbed_uuid, testbed_ip, ssh_user, ssh_password, chart_url, allocation_uuid,
 			status, start_time, end_time, error_message, created_at, updated_at
 		FROM tasks
 		WHERE status = 'pending'
@@ -401,6 +422,7 @@ func (s *MySQLTaskStorage) GetRunningTasks() ([]*models.Task, error) {
 	query := `
 		SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
 			check_order, execute_order, resource_id, request_url, build_id, log_file_path, analyzing,
+			testbed_uuid, testbed_ip, ssh_user, ssh_password, chart_url, allocation_uuid,
 			status, start_time, end_time, error_message, created_at, updated_at
 		FROM tasks
 		WHERE status = 'running' AND analyzing = false
@@ -415,6 +437,7 @@ func (s *MySQLTaskStorage) GetTasksByStatus(status models.TaskStatus) ([]*models
 	query := `
 		SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
 			check_order, execute_order, resource_id, request_url, build_id, log_file_path, analyzing,
+			testbed_uuid, testbed_ip, ssh_user, ssh_password, chart_url, allocation_uuid,
 			status, start_time, end_time, error_message, created_at, updated_at
 		FROM tasks
 		WHERE status = ?
@@ -438,6 +461,7 @@ func (s *MySQLTaskStorage) GetTasksByStatus(status models.TaskStatus) ([]*models
 			&task.ID, &task.TaskID, &task.TaskName, &task.EventID, &task.CheckType,
 			&task.Stage, &task.StageOrder, &task.CheckOrder, &task.ExecuteOrder,
 			&resourceID, &task.RequestURL, &buildID, &task.LogFilePath, &task.Analyzing,
+			&task.TestbedUUID, &task.TestbedIP, &task.SSHUser, &task.SSHPassword, &task.ChartURL, &task.AllocationUUID,
 			&task.Status, &startTime, &endTime, &task.ErrorMessage, &task.CreatedAt, &task.UpdatedAt,
 		)
 		if err != nil {
@@ -468,6 +492,7 @@ func (s *MySQLTaskStorage) GetTasksByEventID(eventID int) ([]*models.Task, error
 	query := `
 		SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
 			check_order, execute_order, resource_id, request_url, build_id, log_file_path, analyzing,
+			testbed_uuid, testbed_ip, ssh_user, ssh_password, chart_url, allocation_uuid,
 			status, start_time, end_time, error_message, created_at, updated_at
 		FROM tasks
 		WHERE event_id = ?
@@ -491,6 +516,7 @@ func (s *MySQLTaskStorage) GetTasksByEventID(eventID int) ([]*models.Task, error
 			&task.ID, &task.TaskID, &task.TaskName, &task.EventID, &task.CheckType,
 			&task.Stage, &task.StageOrder, &task.CheckOrder, &task.ExecuteOrder,
 			&resourceID, &task.RequestURL, &buildID, &task.LogFilePath, &task.Analyzing,
+			&task.TestbedUUID, &task.TestbedIP, &task.SSHUser, &task.SSHPassword, &task.ChartURL, &task.AllocationUUID,
 			&task.Status, &startTime, &endTime, &task.ErrorMessage, &task.CreatedAt, &task.UpdatedAt,
 		)
 		if err != nil {
@@ -543,6 +569,7 @@ func (s *MySQLTaskStorage) listTasksByQuery(query string) ([]*models.Task, error
 			&task.ID, &task.TaskID, &task.TaskName, &task.EventID, &task.CheckType,
 			&task.Stage, &task.StageOrder, &task.CheckOrder, &task.ExecuteOrder,
 			&resourceID, &task.RequestURL, &buildID, &task.LogFilePath, &task.Analyzing,
+			&task.TestbedUUID, &task.TestbedIP, &task.SSHUser, &task.SSHPassword, &task.ChartURL, &task.AllocationUUID,
 			&task.Status, &startTime, &endTime, &task.ErrorMessage, &task.CreatedAt, &task.UpdatedAt,
 		)
 		if err != nil {
@@ -805,6 +832,7 @@ func (s *MySQLTaskStorage) GetLatestTaskByEventID(eventID int) (*models.Task, er
 	query := `
 		SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
 			check_order, execute_order, resource_id, request_url, build_id, log_file_path, analyzing,
+			testbed_uuid, testbed_ip, ssh_user, ssh_password, chart_url, allocation_uuid,
 			status, start_time, end_time, error_message, created_at, updated_at
 		FROM tasks
 		WHERE event_id = ?
@@ -821,6 +849,7 @@ func (s *MySQLTaskStorage) GetLatestTaskByEventID(eventID int) (*models.Task, er
 		&task.ID, &task.TaskID, &task.TaskName, &task.EventID, &task.CheckType,
 		&task.Stage, &task.StageOrder, &task.CheckOrder, &task.ExecuteOrder,
 		&resourceID, &task.RequestURL, &buildID, &task.LogFilePath, &task.Analyzing,
+		&task.TestbedUUID, &task.TestbedIP, &task.SSHUser, &task.SSHPassword, &task.ChartURL, &task.AllocationUUID,
 		&task.Status, &startTime, &endTime, &task.ErrorMessage, &task.CreatedAt, &task.UpdatedAt,
 	)
 	if err != nil {
@@ -851,6 +880,7 @@ func (s *MySQLTaskStorage) GetCompletedTasksByEventID(eventID int) ([]*models.Ta
 	query := `
 		SELECT id, task_id, task_name, event_id, check_type, stage, stage_order,
 			check_order, execute_order, resource_id, request_url, build_id, log_file_path, analyzing,
+			testbed_uuid, testbed_ip, ssh_user, ssh_password, chart_url, allocation_uuid,
 			status, start_time, end_time, error_message, created_at, updated_at
 		FROM tasks
 		WHERE event_id = ? AND status IN ('passed', 'failed', 'timeout', 'cancelled', 'skipped')
@@ -874,6 +904,7 @@ func (s *MySQLTaskStorage) GetCompletedTasksByEventID(eventID int) ([]*models.Ta
 			&task.ID, &task.TaskID, &task.TaskName, &task.EventID, &task.CheckType,
 			&task.Stage, &task.StageOrder, &task.CheckOrder, &task.ExecuteOrder,
 			&resourceID, &task.RequestURL, &buildID, &task.LogFilePath, &task.Analyzing,
+			&task.TestbedUUID, &task.TestbedIP, &task.SSHUser, &task.SSHPassword, &task.ChartURL, &task.AllocationUUID,
 			&task.Status, &startTime, &endTime, &task.ErrorMessage, &task.CreatedAt, &task.UpdatedAt,
 		)
 		if err != nil {
