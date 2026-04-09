@@ -1,0 +1,236 @@
+# 双引擎质量网关 - 微服务 Docker Compose 配置
+# 开发环境一键启动所有服务
+#
+# 使用方法:
+#   1. 先运行 ./build-all.sh 编译所有服务
+#   2. 再运行 docker-compose up -d 启动所有服务
+
+version: '3.8'
+
+services:
+  # ============================================================
+  # 外网服务 (模拟部署在 10.4.111.141)
+  # ============================================================
+
+  # Webhook Gateway - 接收 GitHub/GitLab Webhook
+  webhook-gateway:
+    build:
+      context: ../../webhook-gateway
+      dockerfile: Dockerfile
+    container_name: webhook-gateway
+    networks:
+      - quality-network
+    ports:
+      - "4001:4001"
+    environment:
+      - EVENT_STORE_URL=http://event-store:4002
+      - LOG_LEVEL=info
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Event Store - 事件存储和查询
+  event-store:
+    build:
+      context: ../../event-store
+      dockerfile: Dockerfile
+    container_name: event-store
+    networks:
+      - quality-network
+    ports:
+      - "4002:4002"
+    environment:
+      - DB_HOST=event-store-mysql
+      - DB_PORT=3306
+      - DB_NAME=event_store
+      - DB_USER=root
+      - DB_PASSWORD=root123456
+      - LOG_LEVEL=info
+    restart: unless-stopped
+    depends_on:
+      event-store-mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4002/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Event Store MySQL 数据库
+  event-store-mysql:
+    image: acr.aishu.cn/dual-mass-engine-gateway/mysql
+    container_name: event-store-mysql
+    networks:
+      - quality-network
+    ports:
+      - "3308:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123456
+      - MYSQL_DATABASE=event_store
+    volumes:
+      - event-store-mysql-data:/var/lib/mysql
+      - ../../migrations/event-store:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # 内网服务 (模拟部署在 10.4.174.125)
+  # ============================================================
+
+  # Task Scheduler - 任务调度和状态管理
+  task-scheduler:
+    build:
+      context: ../../task-scheduler
+      dockerfile: Dockerfile
+    container_name: task-scheduler
+    networks:
+      - quality-network
+    ports:
+      - "4003:4003"
+    environment:
+      - EVENT_STORE_URL=http://event-store:4002
+      - EXECUTOR_URL=http://executor-service:4004
+      - ANALYZER_URL=http://ai-analyzer:4005
+      - DB_HOST=task-scheduler-mysql
+      - DB_PORT=3306
+      - DB_NAME=task_scheduler
+      - DB_USER=root
+      - DB_PASSWORD=root123456
+      - LOG_LEVEL=info
+    restart: unless-stopped
+    depends_on:
+      task-scheduler-mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4003/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Task Scheduler MySQL 数据库
+  task-scheduler-mysql:
+    image: acr.aishu.cn/dual-mass-engine-gateway/mysql
+    container_name: task-scheduler-mysql
+    networks:
+      - quality-network
+    ports:
+      - "3309:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123456
+      - MYSQL_DATABASE=task_scheduler
+    volumes:
+      - task-scheduler-mysql-data:/var/lib/mysql
+      - ../../migrations/task-scheduler:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Executor Service - Azure DevOps Pipeline 执行
+  executor-service:
+    build:
+      context: ../../executor-service
+      dockerfile: Dockerfile
+    container_name: executor-service
+    networks:
+      - quality-network
+    ports:
+      - "4004:4004"
+    environment:
+      - LOG_LEVEL=info
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4004/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # AI Analyzer - AI 日志分析
+  ai-analyzer:
+    build:
+      context: ../../ai-analyzer
+      dockerfile: Dockerfile
+    container_name: ai-analyzer
+    networks:
+      - quality-network
+    ports:
+      - "4005:4005"
+    environment:
+      - POOL_SIZE=50
+      - LOG_LEVEL=info
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4005/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Resource Manager - 资源池管理
+  resource-manager:
+    build:
+      context: ../../resource-manager
+      dockerfile: Dockerfile
+    container_name: resource-manager
+    networks:
+      - quality-network
+    ports:
+      - "4006:4006"
+    environment:
+      - DB_HOST=resource-manager-mysql
+      - DB_PORT=3306
+      - DB_NAME=resource_manager
+      - DB_USER=root
+      - DB_PASSWORD=root123456
+      - LOG_LEVEL=info
+    restart: unless-stopped
+    depends_on:
+      resource-manager-mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4006/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Resource Manager MySQL 数据库
+  resource-manager-mysql:
+    image: acr.aishu.cn/dual-mass-engine-gateway/mysql
+    container_name: resource-manager-mysql
+    networks:
+      - quality-network
+    ports:
+      - "3310:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123456
+      - MYSQL_DATABASE=resource_manager
+    volumes:
+      - resource-manager-mysql-data:/var/lib/mysql
+      - ../../migrations/resource-manager:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  quality-network:
+    name: quality-network
+    driver: bridge
+
+volumes:
+  event-store-mysql-data:
+    name: event-store-mysql-data
+  task-scheduler-mysql-data:
+    name: task-scheduler-mysql-data
+  resource-manager-mysql-data:
+    name: resource-manager-mysql-data

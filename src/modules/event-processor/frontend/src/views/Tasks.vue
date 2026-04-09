@@ -2,61 +2,61 @@
   <div class="tasks-page">
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Tasks</h2>
+        <h2 class="card-title">任务</h2>
         <div class="filters">
           <select v-model="statusFilter" class="form-control" @change="fetchTasks">
-            <option value="">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="running">Running</option>
-            <option value="passed">Passed</option>
-            <option value="failed">Failed</option>
-            <option value="timeout">Timeout</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="skipped">Skipped</option>
-            <option value="no_resource">No Resource</option>
+            <option value="">所有状态</option>
+            <option value="pending">待处理</option>
+            <option value="running">运行中</option>
+            <option value="passed">通过</option>
+            <option value="failed">失败</option>
+            <option value="timeout">超时</option>
+            <option value="cancelled">已取消</option>
+            <option value="skipped">已跳过</option>
+            <option value="no_resource">无资源</option>
           </select>
         </div>
       </div>
-      
+
       <div v-if="loading" class="loading">
         <div class="spinner"></div>
       </div>
-      
+
       <div v-else-if="tasks.length === 0" class="empty-state">
-        <p>No tasks found</p>
+        <p>没有找到任务</p>
       </div>
-      
+
       <table v-else>
         <thead>
           <tr>
             <th>ID</th>
-            <th>Task Name</th>
-            <th>Event ID</th>
-            <th>Stage</th>
-            <th>Execute Order</th>
-            <th>Status</th>
-            <th>Start Time</th>
-            <th>End Time</th>
-            <th>Error</th>
-            <th>Actions</th>
+            <th>任务名称</th>
+            <th>事件 ID</th>
+            <th>阶段</th>
+            <th>执行顺序</th>
+            <th>状态</th>
+            <th>开始时间</th>
+            <th>结束时间</th>
+            <th>错误</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="task in tasks" :key="task.id">
-            <td>{{ task.id }}</td>
-            <td>{{ task.task_name }}</td>
-            <td>
+            <td :title="task.id">{{ task.id }}</td>
+            <td :title="task.task_name">{{ task.task_name }}</td>
+            <td :title="task.event_id">
               <router-link :to="`/events/${task.event_id}`">{{ task.event_id }}</router-link>
             </td>
-            <td>{{ task.stage }}</td>
-            <td>{{ task.execute_order }}</td>
-            <td>
+            <td :title="task.stage">{{ task.stage }}</td>
+            <td :title="task.execute_order">{{ task.execute_order }}</td>
+            <td :title="task.status">
               <span class="badge" :class="getStatusClass(task.status)">
                 {{ task.status }}
               </span>
             </td>
-            <td>{{ formatTime(task.start_time) }}</td>
-            <td>{{ formatTime(task.end_time) }}</td>
+            <td :title="formatTime(task.start_time)">{{ formatTime(task.start_time) }}</td>
+            <td :title="formatTime(task.end_time)">{{ formatTime(task.end_time) }}</td>
             <td>
               <span v-if="task.error_message" class="error-text" :title="task.error_message">
                 {{ truncate(task.error_message, 30) }}
@@ -82,11 +82,14 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, inject } from 'vue'
+import { useDialog } from '../composables/useDialog'
 
 export default {
   name: 'Tasks',
   setup() {
+    const dialog = useDialog()
+
     const tasks = ref([])
     const loading = ref(false)
     const statusFilter = ref('')
@@ -122,16 +125,16 @@ export default {
         const data = await response.json()
 
         if (data.success) {
-          alert(`AI matching successful! Matched resource: ${data.data.resource_name}`)
+          dialog.alertSuccess(`AI 匹配成功！\n\n匹配资源: ${data.data.resource_name}`)
           fetchTasks()
         } else if (data.code === 'AI_NOT_CONFIGURED') {
-          alert('AI service is not configured.\n\nPlease ask the administrator to configure AI settings:\n1. Go to Admin Console\n2. Navigate to AI Configuration\n3. Enter AI IP, Model, and Token')
+          dialog.alertWarning('AI 服务未配置。\n\n请联系管理员配置 AI 设置：\n1. 进入管理员控制台\n2. 导航到 AI 配置\n3. 输入 IP、模型和令牌')
         } else {
-          alert(data.message || 'AI matching failed')
+          dialog.alertError(data.message || 'AI 匹配失败')
         }
       } catch (error) {
         console.error('Failed to retry AI matching:', error)
-        alert('Failed to retry AI matching')
+        dialog.alertError('重试 AI 匹配失败')
       } finally {
         retryingTaskId.value = null
       }

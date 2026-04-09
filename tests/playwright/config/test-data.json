@@ -1,0 +1,60 @@
+{
+  "base_url": "http://localhost:8082",
+  "api_base_url": "http://localhost:5003",
+  "timeout": {
+    "navigation": 30000,
+    "action": 10000,
+    "assertion": 5000
+  },
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "browsers": ["chromium", "firefox", "webkit"],
+  "screenshot": {
+    "on_failure": true,
+    "on_success": false,
+    "path": "./test-results/screenshots"
+  },
+  "video": {
+    "enabled": false,
+    "path": "./test-results/videos"
+  },
+  "trace": {
+    "enabled": false,
+    "path": "./test-results/traces"
+  },
+  "retry": {
+    "failed_tests": 2,
+    "flaky_tests": 3
+  },
+  "environments": {
+    "local": {
+      "base_url": "http://localhost:8082",
+      "api_base_url": "http://localhost:5003"
+    },
+    "dev": {
+      "base_url": "http://10.4.174.125:8082",
+      "api_base_url": "http://10.4.174.125:5003"
+    },
+    "staging": {
+      "base_url": "http://staging.example.com",
+      "api_base_url": "http://staging-api.example.com"
+    }
+  },
+  "selectors": {
+    "login": {
+      "username_input": "input[name=\"username\"]",
+      "password_input": "input[name=\"password\"]",
+      "submit_button": "button[type=\"submit\"]",
+      "error_message": ".error-message",
+      "user_info": ".user-info",
+      "user_avatar": ".user-avatar",
+      "logout_button": "text=退出"
+    },
+    "navigation": {
+      "home_link": "a[href=\"/\"]",
+      "dashboard_link": "a[href=\"/dashboard\"]"
+    }
+  }
+}

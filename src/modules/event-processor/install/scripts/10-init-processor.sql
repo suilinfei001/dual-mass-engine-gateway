@@ -21,6 +21,12 @@ CREATE TABLE IF NOT EXISTS tasks (
     build_id INT COMMENT 'Azure DevOps build ID',
     log_file_path VARCHAR(512) COMMENT 'Path to the full logs file for this task',
     analyzing BOOLEAN DEFAULT FALSE COMMENT 'AI analysis is in progress',
+    testbed_uuid VARCHAR(64) COMMENT 'Testbed UUID (for release)',
+    testbed_ip VARCHAR(64) COMMENT 'Testbed IP address',
+    ssh_user VARCHAR(128) COMMENT 'SSH username',
+    ssh_password VARCHAR(256) COMMENT 'SSH password',
+    chart_url VARCHAR(512) COMMENT 'Chart URL (from basic_ci_all result)',
+    allocation_uuid VARCHAR(64) COMMENT 'Allocation UUID (for release)',
     status VARCHAR(32) NOT NULL DEFAULT 'pending',
     start_time DATETIME,
     end_time DATETIME,
@@ -32,7 +38,9 @@ CREATE TABLE IF NOT EXISTS tasks (
     INDEX idx_execute_order (execute_order),
     INDEX idx_task_name (task_name),
     INDEX idx_build_id (build_id),
-    INDEX idx_resource_id (resource_id)
+    INDEX idx_resource_id (resource_id),
+    INDEX idx_testbed_uuid (testbed_uuid),
+    INDEX idx_allocation_uuid (allocation_uuid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Task results table (for tasks with multiple check results, e.g., basic_ci_all)

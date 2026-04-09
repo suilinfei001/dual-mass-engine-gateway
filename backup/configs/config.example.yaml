@@ -1,0 +1,8 @@
+# Base URL for ghh-server (client connects here)
+base_url: "http://localhost:8080"
+
+# Optional auth token (env GHH_TOKEN also supported)
+token: ""
+
+# Optional user name for cache grouping (env GHH_USER also supported)
+user: ""

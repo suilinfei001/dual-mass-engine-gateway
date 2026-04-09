@@ -1,0 +1,23 @@
+{
+  "name": "@microservices/frontend-config",
+  "version": "1.0.0",
+  "description": "微服务架构前端 API 配置",
+  "main": "src/api-config.js",
+  "module": "src/api-config.js",
+  "type": "module",
+  "exports": {
+    ".": "./src/api-config.js",
+    "./services": "./src/api-config.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "microservices",
+    "api",
+    "config",
+    "frontend"
+  ],
+  "author": "Claude",
+  "license": "MIT"
+}

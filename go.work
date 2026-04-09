@@ -1,0 +1,12 @@
+go 1.24.11
+
+use (
+	./services/ai-analyzer
+	./services/auth-service
+	./services/event-store
+	./services/executor-service
+	./services/resource-manager
+	./services/task-scheduler
+	./services/webhook-gateway
+	./shared
+)

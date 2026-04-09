@@ -1,0 +1,18 @@
+# Resource Pool Server Dockerfile
+# 使用预编译的本地二进制文件（静态编译）
+# 基于已存在的 golang:1.24-alpine 镜像，它已经包含运行所需的环境
+FROM acr.aishu.cn/dual-mass-engine-gateway/golang:1.24-alpine
+
+WORKDIR /app
+
+# 复制本地编译好的二进制文件（由 deploy-resource-pool.sh 编译）
+COPY output/resource-pool /app/resource-pool
+
+# 设置时区
+ENV TZ=Asia/Shanghai
+
+# 暴露端口
+EXPOSE 5003
+
+# 启动服务
+CMD ["/app/resource-pool"]

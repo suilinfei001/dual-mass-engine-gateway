@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import AuthUtils from '../auth-utils'
 
 function LoginModal({ onLogin, onClose }) {
   const [username, setUsername] = useState('')
@@ -18,24 +19,16 @@ function LoginModal({ onLogin, onClose }) {
     setError('')
 
     try {
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ username, password }),
-        credentials: 'include'
-      })
-
-      const data = await response.json()
+      // 使用本地认证工具进行登录
+      const data = await AuthUtils.login(username, password)
 
       if (data.success) {
         onLogin(data.username)
       } else {
-        setError(data.message || data.error || '登录失败')
+        setError(data.message || '登录失败')
       }
-    } catch (error) {
-      setError('登录失败：' + error.message)
+    } catch (err) {
+      setError('登录失败：' + err.message)
     } finally {
       setLoading(false)
     }

@@ -3,6 +3,7 @@ import LoginModal from './components/LoginModal'
 import MockTest from './pages/MockTest'
 import EventHistory from './pages/EventHistory'
 import SystemStatus from './pages/SystemStatus'
+import AuthUtils from './auth-utils'
 
 function App() {
   const [currentTab, setCurrentTab] = useState('event-history')
@@ -17,10 +18,8 @@ function App() {
 
   const checkLoginStatus = async () => {
     try {
-      const response = await fetch('/api/check-login', {
-        credentials: 'include'
-      })
-      const data = await response.json()
+      // 使用本地认证工具检查登录状态
+      const data = await AuthUtils.checkLogin()
       if (data.is_logged_in) {
         setIsLoggedIn(true)
         setUsername(data.username)
@@ -38,14 +37,8 @@ function App() {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch('/api/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      })
-      const data = await response.json()
+      // 使用本地认证工具登出
+      const data = await AuthUtils.logout()
       if (data.success) {
         setIsLoggedIn(false)
         setUsername('')
